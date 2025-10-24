@@ -1,3 +1,3 @@
-from token_manager import *
+from ws_token_manager import *
 
-print(get_access_token())
+print(get_ws_token())
