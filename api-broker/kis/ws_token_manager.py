@@ -12,6 +12,9 @@ WS_TOKEN_PATH = WS_TOKEN_DIR + "/KIS_WS_TOKEN.txt"
 APP_KEY = os.environ.get("KIS_APP")
 SEC_KEY = os.environ.get("KIS_SEC")
 
+print(APP_KEY)
+print(SEC_KEY)
+
 # 메모리상에 웹소켓 토큰을 유지하기 위한 딕셔너리
 ws_token_dict = {
 
@@ -58,7 +61,7 @@ def get_ws_token():
     json_req = {
         'grant_type': 'client_credentials',
         'appkey': APP_KEY,
-        'appsecret': SEC_KEY,
+        'secretkey': SEC_KEY,
     }
     headers = { 'content-type': 'application/json' }
     resp = requests.post(API_URL + '/oauth2/Approval', headers=headers, data=json.dumps(json_req))
@@ -72,7 +75,6 @@ def get_ws_token():
                 # 만료 시간 지정
                 expired_time = datetime.now() + timedelta(hours=24)
                 json_token['ws_token_token_expired'] = expired_time.strftime('%Y-%m-%d %H:%M:%S')
-                datetime.strptime(ws_token_dict['ws_token_token_expired'], '%Y-%m-%d %H:%M:%S')
                 
                 json.dump(json_token, file, ensure_ascii=False, indent=4)
         except FileNotFoundError:
