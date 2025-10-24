@@ -12,9 +12,6 @@ WS_TOKEN_PATH = WS_TOKEN_DIR + "/KIS_WS_TOKEN.txt"
 APP_KEY = os.environ.get("KIS_APP")
 SEC_KEY = os.environ.get("KIS_SEC")
 
-print(APP_KEY)
-print(SEC_KEY)
-
 # 메모리상에 웹소켓 토큰을 유지하기 위한 딕셔너리
 ws_token_dict = {
 

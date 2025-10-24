@@ -4,7 +4,7 @@ import websockets
 import asyncio
 import json
 
-async def get_realtime_orderbook(stock_code):
+async def get_realtime_orderbook_price(stock_code):
     async with websockets.connect(WS_URL + "/tryitout/HDFSASP0", ping_interval=30) as ws:
         send_data = json.dumps({
             "header": {
