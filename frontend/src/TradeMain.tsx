@@ -4,6 +4,7 @@ import OrderBook from './OrderBook';
 import Order from './Order';
 import Pair from './Pair';
 import OpenOrder from './OpenOrder';
+import TradePrice from './TradePrice';
 
 // --- 차트 플레이스홀더 ---
 const ChartPlaceholder: React.FC = () => {
@@ -70,28 +71,89 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
     switch (activeMenu) {
       case 'Trade':
         return (
-          <div className="flex flex-col lg:flex-row gap-6">
-            {/* 왼쪽: 호가창 */}
-            <aside className="w-full lg:w-[300px]">
-              <OrderBook broker={exchange} symbol={symbol} />
-            </aside>
+          <>
+            {/* 로고 + 메뉴 탭 */}
+            <div className="flex items-center gap-6">
+              <h1 className="text-3xl font-bold text-gray-100">
+                Trade Everything
+              </h1>
+              <div className="flex gap-1">
+                {['Trade', 'Earn', 'Assets'].map((menu) => (
+                  <button
+                    key={menu}
+                    onClick={() => setActiveMenu(menu)}
+                    className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                      activeMenu === menu
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                    }`}
+                  >
+                    {menu}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* 왼쪽: 거래소 선택 + 호가창 */}
+              <aside className="w-full lg:w-[300px] flex flex-col gap-3">
+                {/* 거래소 선택 콤보박스 */}
+                <select
+                  id="exchange-select"
+                  value={exchange}
+                  onChange={(e) => setExchange(e.target.value)}
+                  className="bg-gray-800 text-white border border-gray-600 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="Binance">Binance</option>
+                  <option value="KIS">KIS</option>
+                  <option value="LS">LS</option>
+                  <option value="UPBit">UPBit</option>
+                </select>
+                
+                <OrderBook broker={exchange} symbol={symbol} />
+              </aside>
 
-            {/* 중앙: 차트 */}
-            <main className="w-full lg:w-auto flex">
-              <ChartPlaceholder />
-            </main>
+              {/* 중앙: 차트 */}
+              <main className="w-full lg:w-auto flex">
+                <ChartPlaceholder />
+              </main>
 
-            {/* 오른쪽: 거래 페어 선택 */}
-            <aside className="w-full lg:w-[300px]">
-              <Pair />
-            </aside>
-          </div>
+              {/* 오른쪽: 거래 페어 선택 & 체결가격 */}
+              <aside className="w-full lg:w-[300px] flex flex-col gap-2">
+                <Pair />
+                <TradePrice broker={exchange} symbol={symbol} />
+              </aside>
+            </div>
+          </>
         );
       
       case 'Earn':
         return (
-          <div className="bg-gray-800 rounded-lg p-8 shadow-lg">
-            <h2 className="text-2xl font-bold mb-6">Earn</h2>
+          <>
+            {/* 로고 + 메뉴 탭 */}
+            <div className="flex items-center gap-6">
+              <h1 className="text-3xl font-bold text-gray-100">
+                Trade Everything
+              </h1>
+              <div className="flex gap-1">
+                {['Trade', 'Earn', 'Assets'].map((menu) => (
+                  <button
+                    key={menu}
+                    onClick={() => setActiveMenu(menu)}
+                    className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                      activeMenu === menu
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                    }`}
+                  >
+                    {menu}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="bg-gray-800 rounded-lg p-8 shadow-lg">
+              <h2 className="text-2xl font-bold mb-6">Earn</h2>
             <div className="space-y-6">
               <div className="bg-gray-700 rounded-lg p-6">
                 <h3 className="text-xl font-semibold mb-4">Staking</h3>
@@ -123,12 +185,36 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
                 </button>
               </div>
             </div>
-          </div>
+            </div>
+          </>
         );
       
       case 'Assets':
         return (
-          <div className="bg-gray-800 rounded-lg p-8 shadow-lg">
+          <>
+            {/* 로고 + 메뉴 탭 */}
+            <div className="flex items-center gap-6">
+              <h1 className="text-3xl font-bold text-gray-100">
+                Trade Everything
+              </h1>
+              <div className="flex gap-1">
+                {['Trade', 'Earn', 'Assets'].map((menu) => (
+                  <button
+                    key={menu}
+                    onClick={() => setActiveMenu(menu)}
+                    className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                      activeMenu === menu
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                    }`}
+                  >
+                    {menu}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="bg-gray-800 rounded-lg p-8 shadow-lg">
             <h2 className="text-2xl font-bold mb-6">My Assets</h2>
             <div className="space-y-4">
               {/* 총 자산 요약 */}
@@ -188,7 +274,8 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
                 </button>
               </div>
             </div>
-          </div>
+            </div>
+          </>
         );
       
       default:
@@ -198,51 +285,9 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 lg:p-8 font-sans">
-      <div className="flex gap-6">
-        {/* 좌측: 로고 + 거래소 선택 (세로 배치) */}
-        <div className="flex flex-col gap-3">
-          <h1 className="text-3xl font-bold text-gray-100 h-[36px] flex items-center">
-            Trade Everything
-          </h1>
-          
-          {/* Trade 메뉴일 때만 거래소 선택 콤보박스 표시 */}
-          {activeMenu === 'Trade' && (
-            <select
-              id="exchange-select"
-              value={exchange}
-              onChange={(e) => setExchange(e.target.value)}
-              className="bg-gray-800 text-white border border-gray-600 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            >
-              <option value="Binance">Binance</option>
-              <option value="KIS">KIS</option>
-              <option value="LS">LS</option>
-              <option value="UPBit">UPBit</option>
-            </select>
-          )}
-        </div>
-
-        {/* 우측 영역 */}
-        <div className="flex flex-col gap-3 flex-1">
-          {/* 메뉴 탭 - Trade Everything 로고와 같은 높이 */}
-          <div className="flex gap-1 h-[36px]">
-            {['Trade', 'Earn', 'Assets'].map((menu) => (
-              <button
-                key={menu}
-                onClick={() => setActiveMenu(menu)}
-                className={`px-4 h-full text-sm font-medium rounded transition-colors ${
-                  activeMenu === menu
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-                }`}
-              >
-                {menu}
-              </button>
-            ))}
-          </div>
-          
-          {/* 메인 레이아웃 - 메뉴별 컨텐츠 */}
-          {renderContent()}
-        </div>
+      <div className="flex flex-col gap-3 flex-1">
+        {/* 메인 레이아웃 - 메뉴별 컨텐츠 */}
+        {renderContent()}
       </div>
     </div>
   );
