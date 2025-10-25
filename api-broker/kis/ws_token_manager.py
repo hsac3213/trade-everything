@@ -68,17 +68,16 @@ def get_ws_token():
         approval_key = resp.json()['approval_key']
         try:
             with open(WS_TOKEN_PATH, 'w', encoding='utf-8') as file:
-                json_token = resp.json()
                 # 만료 시간 지정
+                json_token = resp.json()
                 expired_time = datetime.now() + timedelta(hours=24)
                 json_token['ws_token_token_expired'] = expired_time.strftime('%Y-%m-%d %H:%M:%S')
-                
+                ws_token_dict = json_token
                 json.dump(json_token, file, ensure_ascii=False, indent=4)
         except FileNotFoundError:
             print(f'Failed to open file: {WS_TOKEN_PATH} for writing.')
     else:
         print('Invalid Response:')
         print(resp.text)
-
-    access_token_dict = resp.json()
+    
     return approval_key
