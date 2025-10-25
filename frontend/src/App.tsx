@@ -7,15 +7,44 @@ import OpenOrder from './OpenOrder';
 
 // --- 차트 플레이스홀더 ---
 const ChartPlaceholder: React.FC = () => {
+  const [timeframe, setTimeframe] = useState<string>('1D');
+  
+  const timeframes = [
+    { value: 'Tick', label: 'Tick' },
+    { value: '1S', label: '1S' },
+    { value: '1M', label: '1M' },
+    { value: '1H', label: '1H' },
+    { value: '1D', label: '1D' },
+  ];
+
   return (
     <div className="w-[1200px] bg-gray-800 rounded-lg shadow-lg flex flex-col">
+      {/* 주기 선택 버튼들 - 상단 영역 */}
+      <div className="p-3 border-b border-gray-700">
+        <div className="flex gap-1">
+          {timeframes.map((tf) => (
+            <button
+              key={tf.value}
+              onClick={() => setTimeframe(tf.value)}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                timeframe === tf.value
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-900 text-gray-400 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              {tf.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      
       {/* 차트 영역 */}
-      <div className="flex items-start justify-center h-[500px]">
-        <SimpleChart height={500} width="1200px" />
+      <div className="flex items-start justify-center h-[460px]">
+        <SimpleChart height={460} width="1200px" />
       </div>
       
       {/* 하단 영역: 거래 페어 선택 & Open Orders */}
-      <div className="flex gap-4 h-[500px] p-4">
+      <div className="flex gap-4 h-[460px] p-4">
         {/* 좌측: 거래 페어 선택 */}
         <Pair />
         
