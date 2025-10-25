@@ -61,8 +61,9 @@ interface TradeMainProps {
 
 // --- 메인 거래 컴포넌트 ---
 const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
-  const [exchange, setExchange] = useState<string>('KIS');
+  const [exchange, setExchange] = useState<string>('Binance');
   const [activeMenu, setActiveMenu] = useState<string>('Trade');
+  const [symbol, setSymbol] = useState<string>('btcusdt');
 
   // 메뉴별 컨텐츠 렌더링
   const renderContent = () => {
@@ -72,7 +73,7 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
           <div className="flex flex-col lg:flex-row gap-6">
             {/* 왼쪽: 호가창 */}
             <aside className="w-full lg:w-[300px]">
-              <OrderBook />
+              <OrderBook broker={exchange} symbol={symbol} />
             </aside>
 
             {/* 중앙: 차트 */}
@@ -212,10 +213,10 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
               onChange={(e) => setExchange(e.target.value)}
               className="bg-gray-800 text-white border border-gray-600 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
+              <option value="Binance">Binance</option>
               <option value="KIS">KIS</option>
               <option value="LS">LS</option>
               <option value="UPBit">UPBit</option>
-              <option value="Binance">Binance</option>
             </select>
           )}
         </div>
