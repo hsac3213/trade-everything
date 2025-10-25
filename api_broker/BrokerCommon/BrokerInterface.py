@@ -7,5 +7,5 @@ class BrokerInterface(ABC):
         pass
     
     @abstractmethod
-    def get_realtime_price(self, symbol: str) -> Dict[str, Any]:
+    def get_realtime_orderbook_price(self, symbol: str) -> Dict[str, Any]:
         pass

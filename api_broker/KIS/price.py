@@ -59,7 +59,7 @@ async def get_realtime_orderbook_price(stock_code):
                     await ws.pong(data)
                     print("Pong!")
 
-async def get_realtime_transaction_price(stock_code):
+async def get_realtime_trade_price(stock_code):
     async with websockets.connect(WS_URL + "/tryitout/HDFSCNT0", ping_interval=30) as ws:
         send_data = json.dumps({
             "header": {
@@ -124,4 +124,4 @@ async def get_realtime_transaction_price(stock_code):
                     print("Pong!")
 
 asyncio.run(get_realtime_orderbook_price("DNASAAPL"))
-#asyncio.run(get_realtime_transaction_price("DNASAAPL"))
+#asyncio.run(get_realtime_trade_price("DNASAAPL"))
