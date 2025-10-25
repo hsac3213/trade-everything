@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 const Order: React.FC = () => {
   const [amount, setAmount] = useState<string>('');
   const [price, setPrice] = useState<string>('');
+  const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPrice(e.target.value);
@@ -14,8 +15,31 @@ const Order: React.FC = () => {
   };
 
   return (
-    <div className="bg-gray-800 p-4 rounded-lg shadow-lg mt-4 lg:mt-0 h-[500px] flex flex-col">
-      <h3 className="text-lg font-semibold mb-4 text-center text-gray-200">Order</h3>
+    <div className="flex-1 bg-gray-900 p-4 rounded-lg shadow-lg mt-4 lg:mt-0 flex flex-col">
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setOrderType('limit')}
+            className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+              orderType === 'limit'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            Limit
+          </button>
+          <button
+            onClick={() => setOrderType('market')}
+            className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+              orderType === 'market'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            Market
+          </button>
+        </div>
+      </div>
       <div className="space-y-4 flex-1 flex flex-col justify-center">
         <div>
           <label htmlFor="price" className="block text-sm font-medium text-gray-400 mb-1">
@@ -27,7 +51,7 @@ const Order: React.FC = () => {
             value={price}
             onChange={handlePriceChange}
             className="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="0"
+            placeholder=""
           />
         </div>
         <div>
@@ -40,7 +64,7 @@ const Order: React.FC = () => {
             value={amount}
             onChange={handleAmountChange}
             className="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="0.0000"
+            placeholder=""
           />
         </div>
         
