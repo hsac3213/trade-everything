@@ -43,6 +43,7 @@ const App: React.FC = () => {
               className="bg-gray-800 text-white border border-gray-600 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
               <option value="KIS">KIS</option>
+              <option value="LS">LS</option>
               <option value="UPBit">UPBit</option>
               <option value="Binance">Binance</option>
             </select>
