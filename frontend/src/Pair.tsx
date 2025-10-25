@@ -21,7 +21,7 @@ const Pair: React.FC = () => {
   );
 
   return (
-    <div className="flex-1 bg-gray-900 rounded-lg p-4 flex flex-col">
+    <div className="flex-1 bg-gray-800 rounded-lg p-4 flex flex-col shadow-lg">
       <h3 className="text-lg font-semibold mb-3 text-gray-200">Pair</h3>
       
       {/* 검색 입력 */}

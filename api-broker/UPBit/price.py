@@ -4,6 +4,7 @@ import uuid
 import json
 import asyncio
 import websockets
+import time
 
 async def test():
     ticket = str(uuid.uuid4())
@@ -32,9 +33,20 @@ async def test():
         ]))
         print(f"Input Command is :{payload}")
 
+        # 응답 속도 측정 변수
+        message_count = 0
+        start_time = time.time()
+        last_print_time = start_time
+
         while True:
             data = await ws.recv()
-            print(data)
-            break
+            message_count += 1
+            
+            current_time = time.time()
+            elapsed = current_time - last_print_time
+            rate = message_count / elapsed
+            print(f"WebSocket 응답 속도: {rate:.2f} 회/초 (총 {message_count}개 메시지)")
+            
+            #print(data)
 
-asyncio.run(test())
+#asyncio.run(test())

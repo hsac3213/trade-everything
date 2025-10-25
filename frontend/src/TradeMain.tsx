@@ -18,7 +18,7 @@ const ChartPlaceholder: React.FC = () => {
   ];
 
   return (
-    <div className="w-[1200px] bg-gray-800 rounded-lg shadow-lg flex flex-col">
+    <div className="w-[1300px] bg-gray-800 rounded-lg shadow-lg flex flex-col">
       {/* 주기 선택 버튼들 - 상단 영역 */}
       <div className="p-3 border-b border-gray-700">
         <div className="flex gap-1">
@@ -40,7 +40,7 @@ const ChartPlaceholder: React.FC = () => {
       
       {/* 차트 영역 */}
       <div className="flex items-start justify-center h-[460px]">
-        <SimpleChart height={460} width="1200px" />
+        <SimpleChart height={460} width="1300px" />
       </div>
       
       {/* 하단 영역: 거래 페어 선택 & Open Orders */}
@@ -71,7 +71,7 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
         return (
           <div className="flex flex-col lg:flex-row gap-6">
             {/* 왼쪽: 호가창 */}
-            <aside className="w-full lg:w-auto">
+            <aside className="w-full lg:w-[300px]">
               <OrderBook />
             </aside>
 
@@ -81,7 +81,7 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
             </main>
 
             {/* 오른쪽: 거래 페어 선택 */}
-            <aside className="w-full lg:w-auto">
+            <aside className="w-full lg:w-[300px]">
               <Pair />
             </aside>
           </div>

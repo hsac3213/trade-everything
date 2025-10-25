@@ -27,6 +27,11 @@ function CandleChart({
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
+    // width가 픽셀 단위 문자열인 경우 숫자로 변환
+    const chartWidth = typeof width === 'string' && width.endsWith('px')
+      ? parseInt(width)
+      : chartContainerRef.current.clientWidth;
+
     // 차트 생성
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -34,7 +39,7 @@ function CandleChart({
         textColor: textColor,
         attributionLogo: true,
       },
-      width: chartContainerRef.current.clientWidth,
+      width: chartWidth,
       height: height,
       grid: {
         vertLines: { color: '#2b2b43' },
@@ -101,8 +106,12 @@ function CandleChart({
     // 반응형 처리
     const handleResize = () => {
       if (chartContainerRef.current) {
+        const chartWidth = typeof width === 'string' && width.endsWith('px')
+          ? parseInt(width)
+          : chartContainerRef.current.clientWidth;
+        
         chart.applyOptions({
-          width: chartContainerRef.current.clientWidth,
+          width: chartWidth,
         });
       }
     };
@@ -114,7 +123,7 @@ function CandleChart({
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [data, height, backgroundColor, textColor, upColor, downColor]);
+  }, [data, height, width, backgroundColor, textColor, upColor, downColor]);
 
   return (
     <div 
