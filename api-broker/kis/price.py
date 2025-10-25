@@ -123,5 +123,5 @@ async def get_realtime_transaction_price(stock_code):
                     await ws.pong(data)
                     print("Pong!")
 
-#asyncio.run(get_realtime_orderbook("DNASAAPL"))
+asyncio.run(get_realtime_orderbook_price("DNASAAPL"))
 #asyncio.run(get_realtime_transaction_price("DNASAAPL"))
