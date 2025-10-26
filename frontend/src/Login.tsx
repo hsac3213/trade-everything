@@ -115,6 +115,23 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               >
                 {isLoading ? 'Registering...' : 'Register with Passkey'}
               </button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-600"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-gray-800 text-gray-400">Or</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => onLoginSuccess()}
+                type="button"
+                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800"
+              >
+                Guest Login
+              </button>
             </div>
           </div>
         </div>

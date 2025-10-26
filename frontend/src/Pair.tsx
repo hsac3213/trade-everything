@@ -34,7 +34,7 @@ const Pair: React.FC = () => {
       />
       
       {/* 페어 목록 */}
-      <div className="flex-1 overflow-y-auto space-y-1">
+      <div className="flex-1 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 hover:scrollbar-thumb-gray-500">
         {filteredPairs.map((pair) => (
           <div
             key={pair.symbol}

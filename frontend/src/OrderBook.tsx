@@ -152,27 +152,6 @@ const OrderBook: React.FC<OrderBookProps> = ({
             </span>
           </div>
         </div>
-        
-        {/* 호가 개수 조절 컨트롤 */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setDisplayCount(Math.max(1, displayCount - 1))}
-            disabled={displayCount <= 1}
-            className="px-2 py-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 rounded text-xs transition-colors"
-          >
-            -
-          </button>
-          <span className="text-xs text-gray-400 min-w-[40px] text-center">
-            {displayCount}개
-          </span>
-          <button
-            onClick={() => setDisplayCount(Math.min(20, displayCount + 1))}
-            disabled={displayCount >= 20}
-            className="px-2 py-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 rounded text-xs transition-colors"
-          >
-            +
-          </button>
-        </div>
       </div>
       
       <div className="grid grid-cols-3 gap-2 mb-2 text-xs text-gray-400">
