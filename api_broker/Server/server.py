@@ -3,8 +3,12 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
+import queue
 
-app = FastAPI(title="Trade Everything API Broker")
+SERVER_NAME = "Trade Everything API Broker Server"
+SERVER_PORT = 8001
+
+app = FastAPI(title=SERVER_NAME)
 
 # CORS 설정
 app.add_middleware(
@@ -16,28 +20,23 @@ app.add_middleware(
 )
 
 @app.get("/")
-def root():
+def get_root():
     return {
-        "message": "Trade Everything API Broker Server",
-        "available_brokers": BrokerFactory.get_available_brokers()
+        "message": "hello",
     }
 
 @app.get("/brokers")
 def get_brokers():
-    """사용 가능한 브로커 목록 조회"""
     return {
+        "message": "success",
         "brokers": BrokerFactory.get_available_brokers()
     }
 
-@app.websocket("/ws/orderbook/{broker_name}/{symbol}")
+@app.websocket("/ws/{broker_name}/orderbook/{symbol}")
 async def websocket_orderbook(websocket: WebSocket, broker_name: str, symbol: str):
-    """
-    실시간 호가 WebSocket 엔드포인트
-    
-    예: ws://localhost:8001/ws/orderbook/Binance/btcusdt
-    """
     await websocket.accept()
-    print(f"✅ WebSocket client connected: {broker_name}/{symbol}")
+    print("[ websocket_orderbook ]")
+    print(f"Connected : {broker_name}/{symbol}")
     
     broker = None
     
@@ -53,9 +52,6 @@ async def websocket_orderbook(websocket: WebSocket, broker_name: str, symbol: st
                 print(f"❌ Error sending data: {e}")
         
         # 동기 콜백에서 비동기 send 호출
-        import queue
-        import threading
-        
         data_queue_sync = queue.Queue()
         
         def sync_callback(data: dict):
@@ -103,13 +99,12 @@ async def websocket_orderbook(websocket: WebSocket, broker_name: str, symbol: st
         print(f"🔌 WebSocket closed: {broker_name}/{symbol}")
 
 def main():
-    print("🚀 Starting Trade Everything API Broker Server...")
-    print(f"📋 Available brokers: {BrokerFactory.get_available_brokers()}")
+    print(f"Starting {SERVER_NAME}...")
     
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8001,
+        port=SERVER_PORT,
         log_level="info"
     )
 

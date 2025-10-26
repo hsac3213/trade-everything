@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Login from './Login';
-import TradeMain from './TradeMain';
+import TradeMain from './MainPage';
 
 // --- 메인 앱 컴포넌트 (라우팅 역할) ---
 const App: React.FC = () => {

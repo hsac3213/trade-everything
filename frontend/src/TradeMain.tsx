@@ -5,6 +5,8 @@ import Order from './Order';
 import Pair from './Pair';
 import OpenOrder from './OpenOrder';
 import TradePrice from './TradePrice';
+import Earn from './Earn';
+import Assets from './Assets';
 
 // --- 차트 플레이스홀더 ---
 const ChartPlaceholder: React.FC = () => {
@@ -152,40 +154,7 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
               </div>
             </div>
             
-            <div className="bg-gray-800 rounded-lg p-8 shadow-lg">
-              <h2 className="text-2xl font-bold mb-6">Earn</h2>
-            <div className="space-y-6">
-              <div className="bg-gray-700 rounded-lg p-6">
-                <h3 className="text-xl font-semibold mb-4">Staking</h3>
-                <p className="text-gray-300 mb-4">
-                  Stake your crypto assets and earn rewards
-                </p>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md transition-colors">
-                  Start Staking
-                </button>
-              </div>
-              
-              <div className="bg-gray-700 rounded-lg p-6">
-                <h3 className="text-xl font-semibold mb-4">Savings</h3>
-                <p className="text-gray-300 mb-4">
-                  Earn interest on your crypto holdings
-                </p>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md transition-colors">
-                  View Products
-                </button>
-              </div>
-              
-              <div className="bg-gray-700 rounded-lg p-6">
-                <h3 className="text-xl font-semibold mb-4">Liquidity Mining</h3>
-                <p className="text-gray-300 mb-4">
-                  Provide liquidity and earn trading fees
-                </p>
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md transition-colors">
-                  Explore Pools
-                </button>
-              </div>
-            </div>
-            </div>
+            <Earn />
           </>
         );
       
@@ -214,67 +183,7 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
               </div>
             </div>
             
-            <div className="bg-gray-800 rounded-lg p-8 shadow-lg">
-            <h2 className="text-2xl font-bold mb-6">My Assets</h2>
-            <div className="space-y-4">
-              {/* 총 자산 요약 */}
-              <div className="bg-gray-700 rounded-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-gray-400">Total Balance</span>
-                  <span className="text-3xl font-bold">$0.00</span>
-                </div>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <div className="text-gray-400">Spot</div>
-                    <div className="text-lg font-semibold">$0.00</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-400">Earning</div>
-                    <div className="text-lg font-semibold">$0.00</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-400">Funding</div>
-                    <div className="text-lg font-semibold">$0.00</div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* 자산 목록 테이블 */}
-              <div className="bg-gray-700 rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-600">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-sm font-semibold">Asset</th>
-                      <th className="px-6 py-3 text-right text-sm font-semibold">Total</th>
-                      <th className="px-6 py-3 text-right text-sm font-semibold">Available</th>
-                      <th className="px-6 py-3 text-right text-sm font-semibold">In Order</th>
-                      <th className="px-6 py-3 text-right text-sm font-semibold">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t border-gray-600">
-                      <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
-                        No assets to display
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              
-              {/* 액션 버튼 */}
-              <div className="flex gap-4">
-                <button className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md transition-colors font-medium">
-                  Deposit
-                </button>
-                <button className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-md transition-colors font-medium">
-                  Withdraw
-                </button>
-                <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md transition-colors font-medium">
-                  Transfer
-                </button>
-              </div>
-            </div>
-            </div>
+            <Assets />
           </>
         );
       

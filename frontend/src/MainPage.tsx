@@ -1,0 +1,107 @@
+import React, { useState } from 'react';
+import Trade from './Trade';
+import Futures from './Futures';
+import Earn from './Earn';
+import Assets from './Assets';
+import License from './License';
+
+interface TradeMainProps {
+  onLogout?: () => void;
+}
+
+// --- 메뉴 헤더 컴포넌트 ---
+interface MenuHeaderProps {
+  activeMenu: string;
+  onMenuChange: (menu: string) => void;
+  menuItems: string[];
+}
+
+const MenuHeader: React.FC<MenuHeaderProps> = ({ activeMenu, onMenuChange, menuItems }) => {
+  return (
+    <div className="flex items-center gap-6">
+      <h1 className="text-3xl font-bold text-gray-100">
+        Trade Everything
+      </h1>
+      <div className="flex gap-1">
+        {menuItems.map((menu) => (
+          <button
+            key={menu}
+            onClick={() => onMenuChange(menu)}
+            className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+              activeMenu === menu
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            {menu}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// --- 메인 거래 컴포넌트 ---
+const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
+  const menuItems = ['Trade', 'Futures', 'Earn', 'Assets', 'License'];
+  const [activeMenu, setActiveMenu] = useState<string>('Trade');
+
+  // 메뉴별 컨텐츠 렌더링
+  const renderContent = () => {
+    switch (activeMenu) {
+      case 'Trade':
+        return (
+          <>
+            <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
+            <Trade />
+          </>
+        );
+      
+      case 'Futures':
+        return (
+          <>
+            <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
+            <Futures />
+          </>
+        );
+      
+      case 'Earn':
+        return (
+          <>
+            <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
+            <Earn />
+          </>
+        );
+      
+      case 'Assets':
+        return (
+          <>
+            <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
+            <Assets />
+          </>
+        );
+      
+      case 'License':
+        return (
+          <>
+            <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
+            <License />
+          </>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white p-4 lg:p-8 font-sans">
+      <div className="flex flex-col gap-3 flex-1">
+        {/* 메인 레이아웃 - 메뉴별 컨텐츠 */}
+        {renderContent()}
+      </div>
+    </div>
+  );
+}
+
+export default TradeMain;

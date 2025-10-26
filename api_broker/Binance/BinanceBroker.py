@@ -6,6 +6,9 @@ import json
 import threading
 import time
 
+# Endpoint 마다 rate limit 관리 코드 추가하기!!
+# HTTP 429 return code is used when breaking a request rate limit.
+# HTTP 418 return code is used when an IP has been auto-banned for continuing to send requests after receiving 429 codes.
 class BinanceBroker(BrokerInterface):
     def __init__(self, api_key: str = None, secret_key: str = None):
         self.api_key = api_key
