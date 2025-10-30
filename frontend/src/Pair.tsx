@@ -21,8 +21,8 @@ const Pair: React.FC = () => {
   );
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 flex flex-col shadow-lg h-[515px]">
-      <h3 className="text-lg font-semibold mb-3 text-gray-200">Pair</h3>
+    <div className="bg-gray-800 rounded-lg p-3 flex flex-col shadow-lg h-[520px]">
+      <h3 className="text-base font-semibold mb-2 text-gray-200">Pair</h3>
       
       {/* 검색 입력 */}
       <input
@@ -30,7 +30,7 @@ const Pair: React.FC = () => {
         placeholder="Search Pairs..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="mb-3 p-2 rounded-md bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="mb-2 p-2 rounded-md bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       
       {/* 페어 목록 */}

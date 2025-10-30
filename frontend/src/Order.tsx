@@ -15,8 +15,8 @@ const Order: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 bg-gray-900 p-4 rounded-lg shadow-lg mt-4 lg:mt-0 flex flex-col">
-      <div className="flex justify-between items-center mb-4">
+    <div className="flex-1 bg-gray-900 p-3 rounded-lg shadow-lg mt-4 lg:mt-0 flex flex-col">
+      <div className="flex justify-between items-center mb-2">
         <div className="flex gap-2">
           <button
             onClick={() => setOrderType('limit')}
@@ -40,7 +40,7 @@ const Order: React.FC = () => {
           </button>
         </div>
       </div>
-      <div className="space-y-4 flex-1 flex flex-col justify-center">
+      <div className="space-y-3">
         <div>
           <label htmlFor="price" className="block text-sm font-medium text-gray-400 mb-1">
             Order Price

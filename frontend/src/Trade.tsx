@@ -45,7 +45,7 @@ const ChartPlaceholder: React.FC = () => {
       </div>
       
       {/* 하단 영역: 거래 페어 선택 & Open Orders */}
-      <div className="flex gap-4 h-[460px] p-4">
+      <div className="flex gap-4 p-4">
         {/* 좌측: 주문 */}
         <Order />
         

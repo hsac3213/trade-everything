@@ -6,8 +6,7 @@ import asyncio
 import queue
 import json
 import traceback
-
-from ..Binance.BinanceBroker import BinanceBroker
+import websockets
 
 SERVER_NAME = "Trade Everything API Broker Server"
 SERVER_PORT = 8001
@@ -38,7 +37,7 @@ def get_brokers():
 
 @app.websocket("/ws/orderbook/{broker_name}/{symbol}")
 async def websocket_orderbook_proxy(ws: WebSocket, broker_name: str, symbol: str):
-    """완전 비동기 프록시 방식 - 바이낸스 데이터를 즉시 클라이언트로 전송"""
+    # 완전 비동기 프록시 방식 - 바이낸스 데이터를 즉시 클라이언트로 전송
     await ws.accept()
     print(f"✅ Client connected: {broker_name}/{symbol}")
     
@@ -52,6 +51,9 @@ async def websocket_orderbook_proxy(ws: WebSocket, broker_name: str, symbol: str
         async def send_callback(data: dict):
             try:
                 await ws.send_json(data)
+            except WebSocketDisconnect as e:
+                print("[ websocket_orderbook_proxy ]")
+                print(f"ConnectionClosed: {e}")
             except Exception as e:
                 print(f"❌ Error sending data to client: {e}")
                 raise  # 연결 끊김 시 상위로 전파

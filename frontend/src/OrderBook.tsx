@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 // 호가창 데이터 행
 interface Order {
   price: number;
-  size: number;
+  quantity: number;
 }
 
 interface OrderBookProps {
@@ -16,20 +16,20 @@ interface OrderBookProps {
 // 호가창 행 컴포넌트 Props
 interface OrderBookRowProps {
   price: number;
-  size: number;
+  quantity: number;
   type: 'ask' | 'bid';
   displayCount: number;
   maxTotal: number;  // Total 값의 최대값 (bar 너비 계산용)
 }
 
 // 호가창 행 컴포넌트
-const OrderBookRow: React.FC<OrderBookRowProps> = ({ price, size, type, displayCount, maxTotal }) => {
+const OrderBookRow: React.FC<OrderBookRowProps> = ({ price, quantity, type, displayCount, maxTotal }) => {
   const isAsk = type === 'ask';
   const textColor = isAsk ? 'text-red-500' : 'text-green-500';
   const barColor = isAsk ? 'bg-red-900/50' : 'bg-green-900/50';
   
   // Total 계산 (Price * Amount)
-  const total = price * size;
+  const total = price * quantity;
   
   // Total을 기준으로 bar 너비 설정 (2배로 증폭)
   const barWidth = maxTotal > 0 ? Math.min((total / maxTotal) * 100 * 2, 100) : 0;
@@ -66,7 +66,7 @@ const OrderBookRow: React.FC<OrderBookRowProps> = ({ price, size, type, displayC
       <span className={`z-10 font-mono ${textColor}`}>{price.toLocaleString()}</span>
       
       {/* Amount */}
-      <span className="z-10 font-mono text-right">{size.toFixed(5)}</span>
+      <span className="z-10 font-mono text-right">{quantity.toFixed(5)}</span>
       
       {/* Total */}
       <span className="z-10 font-mono text-right">{formatTotal(total)}</span>
@@ -88,15 +88,20 @@ const OrderBook: React.FC<OrderBookProps> = ({
 
   // WebSocket 연결
   useEffect(() => {
+    let isMounted = true; // cleanup 플래그
     const ws = new WebSocket(`ws://localhost:8001/ws/orderbook/${broker}/${symbol}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log(`✅ Connected to ${broker} ${symbol} orderbook`);
-      setIsConnected(true);
+      if (isMounted) {
+        console.log(`✅ Connected to ${broker} ${symbol} orderbook`);
+        setIsConnected(true);
+      }
     };
 
     ws.onmessage = (event) => {
+      if (!isMounted) return; // 언마운트된 경우 무시
+      
       try {
         const data = JSON.parse(event.data);
         
@@ -117,20 +122,29 @@ const OrderBook: React.FC<OrderBookProps> = ({
     };
 
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setIsConnected(false);
+      if (isMounted) {
+        console.error('WebSocket error:', error);
+        setIsConnected(false);
+      }
     };
 
     ws.onclose = () => {
-      console.log('🔌 WebSocket disconnected');
-      setIsConnected(false);
+      if (isMounted) {
+        console.log('🔌 WebSocket disconnected');
+        setIsConnected(false);
+      }
     };
 
     // Cleanup: 컴포넌트 언마운트 시 연결 해제
     return () => {
-      if (ws.readyState === WebSocket.OPEN) {
+      console.log('🧹 Cleaning up WebSocket connection');
+      isMounted = false; // 언마운트 표시
+      
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
         ws.close();
       }
+      
+      wsRef.current = null;
     };
   }, [broker, symbol]);
 
@@ -139,10 +153,10 @@ const OrderBook: React.FC<OrderBookProps> = ({
   const displayedBids = bids.slice(0, displayCount);
 
   return (
-    <div className="bg-gray-800 p-4 rounded-lg shadow-lg h-[1000px] flex flex-col">
-      <div className="flex justify-between items-center mb-3">
+    <div className="bg-gray-800 p-3 rounded-lg shadow-lg h-[900px] flex flex-col">
+      <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-gray-200">Order Book</h3>
+          <h3 className="text-base font-semibold text-gray-200">Order Book</h3>
           <div className="flex items-center gap-2">
             <div 
               className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}
@@ -154,7 +168,7 @@ const OrderBook: React.FC<OrderBookProps> = ({
         </div>
       </div>
       
-      <div className="grid grid-cols-3 gap-2 mb-2 text-xs text-gray-400">
+      <div className="grid grid-cols-3 gap-2 text-xs text-gray-400 pb-0.5">
         <span>Price</span>
         <span className="text-right">Amount</span>
         <span className="text-right">Total</span>
@@ -162,12 +176,12 @@ const OrderBook: React.FC<OrderBookProps> = ({
       
       {/* 호가 영역 - 스크롤 없이 모두 표시 */}
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-        {/* 매도 (Asks) */}
-        <div className="flex-1 flex flex-col justify-end">
+        {/* 매도 (Asks) - 역순으로 표시하되 상단부터 */}
+        <div className="flex flex-col">
           {displayedAsks.slice().reverse().map((ask, index) => {
             // 상위 5개의 Total 평균 계산
             const allTotals = [...displayedAsks, ...displayedBids]
-              .map(item => item.price * item.size)
+              .map(item => item.price * item.quantity)
               .filter(total => total > 0)
               .sort((a, b) => b - a);
             
@@ -181,7 +195,7 @@ const OrderBook: React.FC<OrderBookProps> = ({
               <OrderBookRow 
                 key={`ask-${ask.price}-${index}`} 
                 price={ask.price} 
-                size={ask.size} 
+                quantity={ask.quantity} 
                 type="ask"
                 displayCount={displayCount}
                 maxTotal={avgTopTotal}
@@ -202,7 +216,7 @@ const OrderBook: React.FC<OrderBookProps> = ({
           {displayedBids.map((bid, index) => {
             // 상위 5개의 Total 평균 계산
             const allTotals = [...displayedAsks, ...displayedBids]
-              .map(item => item.price * item.size)
+              .map(item => item.price * item.quantity)
               .filter(total => total > 0)
               .sort((a, b) => b - a);
             
@@ -216,7 +230,7 @@ const OrderBook: React.FC<OrderBookProps> = ({
               <OrderBookRow 
                 key={`bid-${bid.price}-${index}`} 
                 price={bid.price} 
-                size={bid.size} 
+                quantity={bid.quantity} 
                 type="bid"
                 displayCount={displayCount}
                 maxTotal={avgTopTotal}
