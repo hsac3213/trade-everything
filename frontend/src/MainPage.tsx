@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Trade from './Trade';
-import Futures from './Futures';
 import Earn from './Earn';
 import Assets from './Assets';
+import Script from './Script';
 import License from './License';
 
 interface TradeMainProps {
@@ -43,7 +43,7 @@ const MenuHeader: React.FC<MenuHeaderProps> = ({ activeMenu, onMenuChange, menuI
 
 // --- 메인 거래 컴포넌트 ---
 const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
-  const menuItems = ['Trade', 'Futures', 'Earn', 'Assets', 'License'];
+  const menuItems = ['Trade', 'Earn', 'Assets', 'Script', 'License'];
   const [activeMenu, setActiveMenu] = useState<string>('Trade');
 
   // 메뉴별 컨텐츠 렌더링
@@ -54,14 +54,6 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
           <>
             <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
             <Trade />
-          </>
-        );
-      
-      case 'Futures':
-        return (
-          <>
-            <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
-            <Futures />
           </>
         );
       
@@ -78,6 +70,14 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
           <>
             <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
             <Assets />
+          </>
+        );
+      
+      case 'Script':
+        return (
+          <>
+            <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
+            <Script />
           </>
         );
       
