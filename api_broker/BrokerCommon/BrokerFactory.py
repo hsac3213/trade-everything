@@ -1,15 +1,16 @@
 from typing import Dict, Type, List
 from .BrokerInterface import BrokerInterface
 from ..Binance.BinanceBroker import BinanceBroker
+from ..KIS.KISBroker import KISBroker
 
 class BrokerFactory:    
     _brokers: Dict[str, Type[BrokerInterface]] = {
-        'Binance': BinanceBroker,
+        "Binance": BinanceBroker,
+        "KIS": KISBroker,
     }
     
     @classmethod
     def create_broker(cls, broker_name: str, api_key: str = None, secret_key: str = None) -> BrokerInterface:
-        """브로커 인스턴스 생성"""
         broker_class = cls._brokers.get(broker_name)
         if not broker_class:
             raise ValueError(f"Unsupported broker: {broker_name}")

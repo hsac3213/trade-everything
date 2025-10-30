@@ -3,7 +3,7 @@ import json
 import requests
 from datetime import datetime, timedelta
 
-from constants import *
+from .constants import *
 
 WS_TOKEN_DIR = "./Token"
 WS_TOKEN_PATH = WS_TOKEN_DIR + "/KIS_WS_TOKEN.txt"

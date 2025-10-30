@@ -6,7 +6,6 @@ import asyncio
 import queue
 import json
 import traceback
-import websockets
 
 SERVER_NAME = "Trade Everything API Broker Server"
 SERVER_PORT = 8001
@@ -36,151 +35,173 @@ def get_brokers():
     }
 
 @app.websocket("/ws/orderbook/{broker_name}/{symbol}")
-async def websocket_orderbook_proxy(ws: WebSocket, broker_name: str, symbol: str):
-    # 완전 비동기 프록시 방식 - 바이낸스 데이터를 즉시 클라이언트로 전송
+async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
+    """호가 전용 WebSocket"""
     await ws.accept()
-    print(f"✅ Client connected: {broker_name}/{symbol}")
+    print(f"✅ Orderbook connected: {broker_name}/{symbol}")
     
     broker = None
+    subscription_task = None
+    is_connected = True
     
     try:
-        # 브로커 인스턴스 생성
         broker = BrokerFactory.create_broker(broker_name)
+        
+        async def send_callback(data: dict):
+            nonlocal is_connected
+            if not is_connected:
+                raise asyncio.CancelledError("Client disconnected")
+            try:
+                await ws.send_json(data)
+            except WebSocketDisconnect:
+                is_connected = False
+                raise asyncio.CancelledError("Client disconnected")
+            except Exception as e:
+                is_connected = False
+                raise asyncio.CancelledError(f"Send error: {e}")
+        
+        subscription_task = asyncio.create_task(
+            broker.subscribe_orderbook_async(symbol, send_callback)
+        )
+        await subscription_task
+    
+    except WebSocketDisconnect:
+        is_connected = False
+    except asyncio.CancelledError:
+        is_connected = False
+    except Exception as e:
+        is_connected = False
+        print(f"❌ Orderbook WebSocket error: {e}")
+    finally:
+        is_connected = False
+        if subscription_task and not subscription_task.done():
+            subscription_task.cancel()
+            try:
+                await subscription_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        print(f"🔌 Orderbook closed: {broker_name}/{symbol}")
+
+@app.websocket("/ws/trade/{broker_name}/{symbol}")
+async def websocket_trade(ws: WebSocket, broker_name: str, symbol: str):
+    await ws.accept()
+    print(f"✅ Trade connected: {broker_name}/{symbol}")
+    
+    broker = None
+    subscription_task = None
+    is_connected = True
+    
+    try:
+        broker = BrokerFactory.create_broker(broker_name)
+        
+        async def send_callback(data: dict):
+            nonlocal is_connected
+            if not is_connected:
+                raise asyncio.CancelledError("Client disconnected")
+            try:
+                await ws.send_json(data)
+            except WebSocketDisconnect:
+                is_connected = False
+                raise asyncio.CancelledError("Client disconnected")
+            except Exception as e:
+                is_connected = False
+                raise asyncio.CancelledError(f"Send error: {e}")
+        
+        subscription_task = asyncio.create_task(
+            broker.subscribe_trade_price_async(symbol, send_callback)
+        )
+        await subscription_task
+    
+    except WebSocketDisconnect:
+        is_connected = False
+    except asyncio.CancelledError:
+        is_connected = False
+    except Exception as e:
+        is_connected = False
+        print(f"❌ Trade WebSocket error: {e}")
+    finally:
+        is_connected = False
+        if subscription_task and not subscription_task.done():
+            subscription_task.cancel()
+            try:
+                await subscription_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        print(f"🔌 Trade closed: {broker_name}/{symbol}")
+
+@app.websocket("/ws")
+async def websocket_proxy(ws: WebSocket):
+    await ws.accept()
+
+    payload = {}
+    try:
+        payload = await ws.receive_json()
+    except:
+        pass
+    
+    broker = None
+    subscription_task = None
+    is_connected = True
+    
+    try:
+        broker = BrokerFactory.create_broker(payload['broker_name'])
         
         # 비동기 콜백 - 데이터를 즉시 클라이언트로 전송 (프록시)
         async def send_callback(data: dict):
+            nonlocal is_connected
+            
+            if not is_connected:
+                raise asyncio.CancelledError("Client disconnected")
             try:
                 await ws.send_json(data)
-            except WebSocketDisconnect as e:
-                print("[ websocket_orderbook_proxy ]")
-                print(f"ConnectionClosed: {e}")
+            except WebSocketDisconnect:
+                # 클라이언트 연결 끊김 - 플래그 설정 후 취소
+                is_connected = False
+                raise asyncio.CancelledError("Client disconnected")
             except Exception as e:
-                print(f"❌ Error sending data to client: {e}")
-                raise  # 연결 끊김 시 상위로 전파
+                # 기타 오류 - 플래그 설정 후 취소
+                is_connected = False
+                raise asyncio.CancelledError(f"Send error: {e}")
         
         # 비동기 구독 시작 - Binance → 즉시 → Client (프록시 방식)
-        await broker.subscribe_orderbook_async(symbol, send_callback)
+        match payload['ws_type']:
+            case "orderbook":
+                subscription_task = asyncio.create_task(
+                    broker.subscribe_orderbook_async(payload['symbol'], send_callback)
+                )
+            case "trade_price":
+                subscription_task = asyncio.create_task(
+                    broker.subscribe_trade_price_async(payload['symbol'], send_callback)
+                )
+        
+        # Task가 완료될 때까지 대기 (WebSocket 연결 유지)
+        await subscription_task
     
     except WebSocketDisconnect:
-        print(f"🔌 Client disconnected: {broker_name}/{symbol}")
+        is_connected = False
+        print(f"Client disconnected")
+    
+    except asyncio.CancelledError:
+        is_connected = False
+        # 정상적인 취소, 로그 불필요
     
     except Exception as e:
-        print(f"❌ WebSocket error: {e}")
+        is_connected = False
+        print(f"WebSocket error: {e}")
         import traceback
         traceback.print_exc()
     
     finally:
-        print(f"🔌 WebSocket closed: {broker_name}/{symbol}")
-
-
-@app.websocket("/ws")
-async def websocket_handler(ws: WebSocket):
-    await ws.accept()
-    print("[ websocket_handler ]")
-    print("[ first ]")
-
-    try:
-        payload = json.loads(await ws.receive_text())
-        print(payload)
-
-        broker = BrokerFactory.create_broker(payload["broker_name"])
-    except json.JSONDecodeError:
-        resp = {
-            "message": "Failed to decode json payload.",
-        }
-        await ws.send_text(json.dumps(resp))
-    except Exception as e:
-        print(traceback.format_exec())
-    
-    try:      
-        while True:
+        # 구독 태스크 취소
+        is_connected = False
+        if subscription_task and not subscription_task.done():
+            subscription_task.cancel()
             try:
-                payload = json.loads(await ws.receive_text())
-                print(payload)
-                
-                resp = {
-                    "message": "ok",
-                }
-                await ws.send_text(json.dumps(resp))
-            except json.JSONDecodeError:
-                resp = {
-                    "message": "Failed to decode json payload."
-                }
-                await ws.send_text(json.dumps(resp))
-    except WebSocketDisconnect:
-        print("WebSocketDisconnect")
-    except Exception as e:
-        print(f"❌ WebSocket error: {e}")
-        print(traceback.format_exc())   
-    finally:
-        pass
-
-@app.websocket("/ws_old")
-async def websocket_handler_old(ws: WebSocket):
-    await ws.accept()
-    print("[ websocket_handler ]")
-    
-    broker = None
-    
-    try:
-        print(ws.receive_text())
-
-        # 브로커 인스턴스 생성
-        broker = BrokerFactory.create_broker(broker_name)
+                await subscription_task
+            except (asyncio.CancelledError, Exception):
+                pass  # 취소 시 발생하는 모든 예외 무시
         
-        # 콜백 함수: 호가 데이터를 WebSocket으로 전송
-        async def send_orderbook(data: dict):
-            try:
-                await ws.send_json(data)
-            except Exception as e:
-                print(f"❌ Error sending data: {e}")
-        
-        # 동기 콜백에서 비동기 send 호출
-        data_queue_sync = queue.Queue()
-        
-        def sync_callback(data: dict):
-            data_queue_sync.put(data)
-        
-        # 호가 구독 시작
-        broker.subscribe_orderbook(symbol, sync_callback)
-        
-        # 별도 태스크로 큐 모니터링
-        async def queue_monitor():
-            while True:
-                try:
-                    # 큐에서 데이터 가져오기 (non-blocking)
-                    while not data_queue_sync.empty():
-                        data = data_queue_sync.get_nowait()
-                        await ws.send_json(data)
-                    await asyncio.sleep(0.01)  # 10ms 대기
-                except Exception as e:
-                    print(f"❌ Queue monitor error: {e}")
-                    break
-        
-        # 큐 모니터링 시작
-        monitor_task = asyncio.create_task(queue_monitor())
-        
-        # 연결 유지 (클라이언트가 연결을 끊을 때까지)
-        try:
-            while True:
-                # 클라이언트로부터 메시지 대기 (ping/pong 등)
-                data = await ws.receive_text()
-                if data == "ping":
-                    await ws.send_text("pong")
-        except WebSocketDisconnect:
-            print(f"🔌 Client disconnected: {broker_name}/{symbol}")
-            monitor_task.cancel()
-    
-    except Exception as e:
-        print(f"❌ WebSocket error: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    finally:
-        # 구독 해제
-        if broker and hasattr(broker, 'unsubscribe_orderbook'):
-            broker.unsubscribe_orderbook()
-        print(f"🔌 WebSocket closed: {broker_name}/{symbol}")
+        print(f"WebSocket closed")
 
 def main():
     print(f"Starting {SERVER_NAME}...")

@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Callable, Awaitable
 import websockets
 import json
 import traceback
+import asyncio
 
 # Endpoint 마다 rate limit 관리 코드 추가하기!!
 # HTTP 429 return code is used when breaking a request rate limit.
@@ -52,8 +53,8 @@ class BinanceBroker(BrokerInterface):
         }
     
     async def subscribe_orderbook_async(self, crypto_pair: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
-        url = WSS_URL + "/ws"
         try:
+            url = WSS_URL + "/ws"
             async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
                 payload = {
                     "method": "SUBSCRIBE",
@@ -63,14 +64,13 @@ class BinanceBroker(BrokerInterface):
                     "id": 1
                 }
                 await ws.send(json.dumps(payload))
+                print(f"✅ Subscribed to Binance {crypto_pair} orderbook")
 
                 while True:
                     try:
                         resp = json.loads(await ws.recv())
                         
-                        if "bids" not in resp:
-                            print(resp)
-                        else:
+                        if "bids" in resp and "asks" in resp:
                             normalized_data = {
                                 "symbol": crypto_pair,
                                 "bids": [
@@ -82,20 +82,87 @@ class BinanceBroker(BrokerInterface):
                                     for ask in resp['asks']
                                 ],
                             }
+                            
+                            # 콜백 호출 - 예외 발생 시 루프 종료
                             await callback(normalized_data)
                         
                     except json.JSONDecodeError as e:
-                        print("[ subscribe_orderbook_async ]")
-                        print(f"JSONDecodeError: {e}")
-                    except Exception as e:
-                        print("[ subscribe_orderbook_async ]")
-                        print(f"Exception: {e}")
-                        print(traceback.format_exc())
+                        print(f"❌ JSON decode error: {e}")
+                    except asyncio.CancelledError:
+                        # 취소 신호 - 즉시 종료
+                        raise
+                    except Exception:
+                        # 콜백 오류 (연결 끊김 등) - 조용히 종료
+                        raise asyncio.CancelledError("Callback error")
         
-        except websockets.exceptions.ConnectionClosed as e:
-            print("[ subscribe_orderbook_async ]")
-            print(f"ConnectionClosed: {e}")
+        except asyncio.CancelledError:
+            # 정상적인 취소 - 로그 없음
+            pass
+        except websockets.exceptions.ConnectionClosed:
+            # Binance 연결 종료 - 로그 없음
+            pass
         except Exception as e:
-            print("[ subscribe_orderbook_async ]")
-            print(f"Exception: {e}")
+            print(f"❌ Binance WebSocket error: {e}")
+            import traceback
+            traceback.print_exc()
             print(traceback.format_exc())
+
+    async def subscribe_trade_price_async(self, crypto_pair: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+        url = WSS_URL + "/ws"
+        
+        try:
+            async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
+                payload = {
+                    "method": "SUBSCRIBE",
+                    "params": [
+                        f"{crypto_pair}@trade"
+                    ],
+                    "id": 1
+                }
+                await ws.send(json.dumps(payload))
+                print(f"✅ Subscribed to Binance {crypto_pair} trade")
+
+                while True:
+                    try:
+                        resp = json.loads(await ws.recv())
+                        
+                        if "e" in resp and resp["e"] == "trade":
+                            # 시간 포맷팅 (HH:MM:SS)
+                            timestamp_ms = resp.get("T", 0)
+                            time_str = ""
+                            if timestamp_ms:
+                                from datetime import datetime
+                                dt = datetime.fromtimestamp(timestamp_ms / 1000)
+                                time_str = dt.strftime("%H:%M:%S")
+                            
+                            normalized_data = {
+                                "symbol": resp["s"],
+                                "price": resp["p"],
+                                "quantity": resp["q"],
+                                "time": time_str,
+                                "isBuyerMaker": resp["m"],
+                                "timestamp": timestamp_ms,
+                            }
+                            
+                            # 콜백 호출 - 예외 발생 시 루프 종료
+                            await callback(normalized_data)
+                        
+                    except json.JSONDecodeError as e:
+                        print(f"❌ JSON decode error: {e}")
+                    except asyncio.CancelledError:
+                        # 취소 신호 - 즉시 종료
+                        raise
+                    except Exception:
+                        # 콜백 오류 (연결 끊김 등) - 조용히 종료
+                        raise asyncio.CancelledError("Callback error")
+        
+        except asyncio.CancelledError:
+            # 정상적인 취소 - 로그 없음
+            pass
+        except websockets.exceptions.ConnectionClosed:
+            # Binance 연결 종료 - 로그 없음
+            pass
+        except Exception as e:
+            print(f"❌ Binance WebSocket error: {e}")
+            import traceback
+            traceback.print_exc()

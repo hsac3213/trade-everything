@@ -84,7 +84,9 @@ const OrderBook: React.FC<OrderBookProps> = ({
   const [asks, setAsks] = useState<Order[]>([]);
   const [bids, setBids] = useState<Order[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
   const wsRef = useRef<WebSocket | null>(null);
+  const wsTradeRef = useRef<WebSocket | null>(null);
 
   // WebSocket 연결
   useEffect(() => {
@@ -148,6 +150,58 @@ const OrderBook: React.FC<OrderBookProps> = ({
     };
   }, [broker, symbol]);
 
+  // 실시간 체결가 구독 (현재가 표시용)
+  useEffect(() => {
+    let isMounted = true;
+    const ws = new WebSocket(`ws://localhost:8001/ws/trade/${broker}/${symbol}`);
+    wsTradeRef.current = ws;
+
+    ws.onopen = () => {
+      if (isMounted) {
+        console.log(`✅ Connected to ${broker} ${symbol} trade for current price`);
+      }
+    };
+
+    ws.onmessage = (event) => {
+      if (!isMounted) return;
+      
+      try {
+        const data = JSON.parse(event.data);
+        
+        // 체결가 데이터가 있으면 현재가 업데이트
+        if (data.price) {
+          setCurrentPrice(Number(data.price));
+        }
+      } catch (error) {
+        console.error('Error parsing trade data:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      if (isMounted) {
+        console.error('Trade WebSocket error:', error);
+      }
+    };
+
+    ws.onclose = () => {
+      if (isMounted) {
+        console.log('🔌 Trade WebSocket disconnected');
+      }
+    };
+
+    // Cleanup
+    return () => {
+      console.log('🧹 Cleaning up Trade WebSocket connection');
+      isMounted = false;
+      
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
+      
+      wsTradeRef.current = null;
+    };
+  }, [broker, symbol]);
+
   // 전체 목 데이터 제거, 실시간 데이터 사용
   const displayedAsks = asks.slice(0, displayCount);
   const displayedBids = bids.slice(0, displayCount);
@@ -204,10 +258,11 @@ const OrderBook: React.FC<OrderBookProps> = ({
           })}
         </div>
 
-        {/* 현재가 (임시) */}
+        {/* 현재가 (실시간 체결가) */}
         <div className={`${displayCount <= 10 ? 'py-2 my-2' : 'py-1 my-1'} border-y border-gray-600 flex-shrink-0`}>
           <span className={`${displayCount <= 10 ? 'text-xl' : 'text-lg'} font-bold text-white flex justify-center`}>
-            {displayedBids.length > 0 ? displayedBids[0].price.toLocaleString() : '---'}
+            {currentPrice > 0 ? currentPrice.toLocaleString() : 
+             (displayedBids.length > 0 ? displayedBids[0].price.toLocaleString() : '---')}
           </span>
         </div>
         

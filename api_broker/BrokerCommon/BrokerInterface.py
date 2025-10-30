@@ -22,5 +22,8 @@ class BrokerInterface(ABC):
     
     @abstractmethod
     async def subscribe_orderbook_async(self, symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
-        """비동기 호가 구독 - 프록시 방식"""
+        pass
+
+    @abstractmethod
+    async def subscribe_trade_price_async(self, symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         pass
