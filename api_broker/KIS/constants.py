@@ -3,6 +3,7 @@ API_URL = "https://openapi.koreainvestment.com:9443"
 WS_URL = "ws://ops.koreainvestment.com:21000"
 
 # 컬럼 이름을 한국어로 변환
+# -> 항상 API 문서와 같은지 크로스체크할 것!
 # Reference : https://github.com/koreainvestment/open-trading-api
 COLUMN_TO_KOR_DICT = {
     # 웹소켓 실시간 호가
@@ -25,6 +26,8 @@ COLUMN_TO_KOR_DICT = {
     "dask1": "매도잔량대비1",
 
     # 웹소켓 실시간/지연 체결가
+    "RSYM": "실시간종목코드",
+    # ^^ 코드에 누락된 컬럼 추가
     "SYMB": "종목코드",
     "ZDIV": "수수점자리수",
     "TYMD": "현지영업일자",
