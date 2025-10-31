@@ -1,7 +1,9 @@
+# Reference : https://apiportal.koreainvestment.com/apiservice-summary
 API_URL = "https://openapi.koreainvestment.com:9443"
 WS_URL = "ws://ops.koreainvestment.com:21000"
 
 # 컬럼 이름을 한국어로 변환
+# Reference : https://github.com/koreainvestment/open-trading-api
 COLUMN_TO_KOR_DICT = {
     # 웹소켓 실시간 호가
     "rsym": "실시간종목코드",
@@ -22,7 +24,7 @@ COLUMN_TO_KOR_DICT = {
     "dbid1": "매수잔량대비1",
     "dask1": "매도잔량대비1",
 
-    # 웹소켓 실시간 체결가
+    # 웹소켓 실시간/지연 체결가
     "SYMB": "종목코드",
     "ZDIV": "수수점자리수",
     "TYMD": "현지영업일자",
@@ -47,5 +49,31 @@ COLUMN_TO_KOR_DICT = {
     "BIVL": "매도체결량",
     "ASVL": "매수체결량",
     "STRN": "체결강도",
-    "MTYP": "시장구분"
+    "MTYP": "시장구분",
+
+    # 웹소켓 실시간 체결통보
+    "CUST_ID": "고객 ID",
+    "ACNT_NO": "계좌번호",
+    "ODER_NO": "주문번호",
+    "OODER_NO": "원주문번호",
+    "SELN_BYOV_CLS": "매도매수구분",
+    "RCTF_CLS": "정정구분",
+    "ODER_KIND2": "주문종류2",
+    "STCK_SHRN_ISCD": "주식 단축 종목코드",
+    "CNTG_QTY": "체결수량",
+    "CNTG_UNPR": "체결단가",
+    "STCK_CNTG_HOUR": "주식 체결 시간",
+    "RFUS_YN": "거부여부",
+    "CNTG_YN": "체결여부",
+    "ACPT_YN": "접수여부",
+    "BRNC_NO": "지점번호",
+    "ODER_QTY": "주문 수량",
+    "ACNT_NAME": "계좌명",
+    "CNTG_ISNM": "체결종목명",
+    "ODER_COND": "해외종목구분",
+    "DEBT_GB": "담보유형코드",
+    "DEBT_DATE": "담보대출일자",
+    "START_TM": "분할매수/매도 시작시간",
+    "END_TM": "분할매수/매도 종료시간",
+    "TM_DIV_TP": "시간분할타입유형",
 }

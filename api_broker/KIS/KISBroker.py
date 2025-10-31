@@ -7,6 +7,9 @@ import json
 import traceback
 import asyncio
 
+# 같은 app key로 2개 이상의 소켓을 동시에 사용할 수 없음
+# -> 하나의 소켓에서 호가와 체결가를 동시에 가져올수는 있음(최대 41건, 2025-11-01 기준)
+# {"header":{"tr_id":"(null)","tr_key":"","encrypt":"N"},"body":{"rt_cd":"9","msg_cd":"OPSP8996","msg1":"ALREADY IN USE appkey"}}
 class KISBroker(BrokerInterface):
     def __init__(self, api_key: str = None, secret_key: str = None):
         self.api_key = api_key
@@ -110,9 +113,10 @@ class KISBroker(BrokerInterface):
                                 "dask1"
                             ]
 
-                            meta_data = resp.split('|')
+                            meta_data = resp.split("|")
+                            tr_id = meta_data[1]
                             
-                            real_data = resp.split('|')[-1].split("^")
+                            real_data = resp.split("|")[-1].split("^")
 
                             resp_dict = {}
                             for col, value in zip(columns, real_data):
@@ -178,8 +182,7 @@ class KISBroker(BrokerInterface):
                         }
                     }
                 }
-                #await ws.send(json.dumps(payload))
-                print(f"✅ Subscribed to Binance {ticker_symbol} orderbook")
+                await ws.send(json.dumps(payload))
 
                 while True:
                     try:
@@ -239,7 +242,7 @@ class KISBroker(BrokerInterface):
                             json_data = json.loads(resp)
                             if(json_data["header"]["tr_id"] == "PINGPONG"):
                                 await ws.pong(resp)
-                                print("Pong!")
+                                #print("Pong!")
                         
                     except json.JSONDecodeError as e:
                         print(f"❌ JSON decode error: {e}")
