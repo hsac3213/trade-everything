@@ -108,7 +108,6 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
                 >
                   <option value="Binance">Binance</option>
                   <option value="KIS">KIS</option>
-                  <option value="LS">LS</option>
                   <option value="UPBit">UPBit</option>
                 </select>
                 

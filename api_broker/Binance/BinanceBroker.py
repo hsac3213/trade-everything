@@ -52,7 +52,8 @@ class BinanceBroker(BrokerInterface):
             'status': 'pending'
         }
     
-    def get_candle_data(self, crypto_pair: str, )
+    def get_candle_data(self, crypto_pair: str):
+        print()
     
     async def subscribe_orderbook_async(self, crypto_pair: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         try:

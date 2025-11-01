@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 const Pair: React.FC = () => {
   const [selectedPair, setSelectedPair] = useState<string>('BTC/USDT');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [modalSearchTerm, setModalSearchTerm] = useState<string>('');
 
   const tradingPairs = [
     { symbol: 'BTC/USDT', price: '43,250.00', change: '+2.45%', positive: true },
@@ -20,9 +22,27 @@ const Pair: React.FC = () => {
     pair.symbol.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const modalFilteredPairs = tradingPairs.filter(pair => 
+    pair.symbol.toLowerCase().includes(modalSearchTerm.toLowerCase())
+  );
+
+  const handlePairSelect = (symbol: string) => {
+    setSelectedPair(symbol);
+    setIsModalOpen(false);
+    setModalSearchTerm('');
+  };
+
   return (
     <div className="bg-gray-800 rounded-lg p-3 flex flex-col shadow-lg h-[520px]">
-      <h3 className="text-base font-semibold mb-2 text-gray-200">Pair</h3>
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="text-base font-semibold text-gray-200">Pair</h3>
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="px-3 py-1 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
+        >
+          More
+        </button>
+      </div>
       
       {/* 검색 입력 */}
       <input
@@ -57,6 +77,65 @@ const Pair: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* 모달 */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setIsModalOpen(false)}>
+          <div className="bg-gray-800 rounded-lg p-6 w-[600px] max-h-[80vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {/* 모달 헤더 */}
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-200">Search Pairs</h2>
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md transition-colors"
+              >
+                Close
+              </button>
+            </div>
+
+            {/* 검색 입력 */}
+            <input
+              type="text"
+              placeholder="Search pairs..."
+              value={modalSearchTerm}
+              onChange={(e) => setModalSearchTerm(e.target.value)}
+              className="mb-4 p-3 rounded-md bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+
+            {/* 페어 목록 */}
+            <div className="flex-1 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+              {modalFilteredPairs.length > 0 ? (
+                modalFilteredPairs.map((pair) => (
+                  <div
+                    key={pair.symbol}
+                    onClick={() => handlePairSelect(pair.symbol)}
+                    className={`p-4 rounded-md cursor-pointer transition-colors ${
+                      selectedPair === pair.symbol
+                        ? 'bg-blue-600 hover:bg-blue-700'
+                        : 'bg-gray-700 hover:bg-gray-600'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-base">{pair.symbol}</span>
+                      <span className={`text-sm font-medium ${pair.positive ? 'text-green-400' : 'text-red-400'}`}>
+                        {pair.change}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-300 mt-1">
+                      ${pair.price}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-400 py-8">
+                  No pairs found
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
