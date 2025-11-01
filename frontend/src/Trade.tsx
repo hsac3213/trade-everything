@@ -86,7 +86,7 @@ const Trade: React.FC = () => {
 
       {/* 오른쪽: 거래 페어 선택 & 체결가격 */}
       <aside className="w-full lg:w-[300px] flex flex-col gap-2">
-        <Pair />
+        <Pair broker={exchange} />
         <TradePrice broker={exchange} symbol={symbol} />
       </aside>
     </div>

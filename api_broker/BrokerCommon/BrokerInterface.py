@@ -13,6 +13,10 @@ class BrokerInterface(ABC):
     """
 
     @abstractmethod
+    def get_symbols(self):
+        return {}
+
+    @abstractmethod
     def get_account_assets(self) -> List[Dict[str, Any]]:
         pass
     

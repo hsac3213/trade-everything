@@ -1,11 +1,13 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
-from .constants import WS_URL, COLUMN_TO_KOR_DICT
+from .constants import API_URL, WS_URL, COLUMN_TO_KOR_DICT
 from .ws_token_manager import get_ws_token
 from typing import List, Dict, Any, Callable, Awaitable
 import websockets
 import json
-import traceback
 import asyncio
+import requests
+import pandas as pd
+import os
 
 # 같은 app key로 2개 이상의 소켓을 동시에 사용할 수 없음
 # -> 하나의 소켓에서 호가와 체결가를 동시에 가져올수는 있음(최대 41건, 2025-11-01 기준)
@@ -23,6 +25,30 @@ class KISBroker(BrokerInterface):
     def __init__(self, api_key: str = None, secret_key: str = None):
         self.api_key = api_key
         self.secret_key = secret_key
+
+    def get_symbols(self) -> List[Dict[str, Any]]:
+        try:
+            df = pd.read_table(f"./KIS/NASMST.COD",sep="\t",encoding="cp949", header=None)
+            
+            symbols = []
+            for row in df.itertuples():
+                if pd.notna(row[5]) and pd.notna(row[8]):
+                    symbols.append({
+                        "symbol": row[5],
+                        "display_name": row[8]
+                    })
+                else:
+                    print(row)
+            
+            return symbols
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error fetching symbols from Binance: {e}")
+            return []
+        except Exception as e:
+            print(f"❌ Unexpected error in get_symbols: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
 
     def get_account_assets(self) -> List[Dict[str, Any]]:
         return [
@@ -160,10 +186,8 @@ class KISBroker(BrokerInterface):
         if resp[0] not in ["0", "1"]:
             try:
                 json_data = json.loads(resp)
-                print(json_data)
                 if json_data.get("header", {}).get("tr_id") == "PINGPONG":
                     await KISBroker._shared_ws.pong(resp)
-                    print("🏓 Pong!")
             except json.JSONDecodeError:
                 print("JSONDecodeError")
                 pass

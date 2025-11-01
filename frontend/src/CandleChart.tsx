@@ -1,20 +1,25 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
-import type { CandlestickData } from 'lightweight-charts';
+import type { CandlestickData, IChartApi } from 'lightweight-charts';
 
-// Props 타입 정의
 interface CandleChartProps {
-  data?: CandlestickData[]; // 외부에서 데이터를 받을 수 있음 (선택적)
-  height?: number; // 차트 높이 (기본값: 600)
-  width?: string; // 차트 너비 (기본값: '100%')
-  backgroundColor?: string; // 배경색 (기본값: '#1e1e1e')
-  textColor?: string; // 텍스트 색상 (기본값: '#d1d4dc')
-  upColor?: string; // 상승 캔들 색상 (기본값: '#26a69a')
-  downColor?: string; // 하락 캔들 색상 (기본값: '#ef5350')
+  broker?: string;
+  symbol?: string;
+  interval?: string;
+  startTime?: string;
+  height?: number;
+  width?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  upColor?: string;
+  downColor?: string;
 }
 
 function CandleChart({
-  data,
+  broker = 'Binance',
+  symbol = 'BTCUSDT',
+  interval = '1h',
+  startTime,
   height = 600,
   width = '100%',
   backgroundColor = '#1e1e1e',
@@ -23,21 +28,58 @@ function CandleChart({
   downColor = '#ef5350',
 }: CandleChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<any>(null);
+  const [candleData, setCandleData] = useState<CandlestickData[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    const fetchCandleData = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const defaultStartTime = startTime || (() => {
+          const date = new Date();
+          date.setDate(date.getDate() - 30);
+          return date.toISOString().slice(0, 19).replace('T', ' ');
+        })();
+        
+        const url = `http://localhost:8001/candle/${broker}?symbol=${symbol}&interval=${interval}&start_time=${encodeURIComponent(defaultStartTime)}`;
+        console.log('Fetching candle data from:', url);
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.message === 'success' && data.candles && Array.isArray(data.candles)) {
+          console.log(`✅ Loaded ${data.candles.length} candles`);
+          setCandleData(data.candles);
+        } else {
+          throw new Error(data.error || 'Invalid response format');
+        }
+      } catch (err) {
+        console.error('Failed to fetch candle data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchCandleData();
+  }, [broker, symbol, interval, startTime]);
 
-    // width가 픽셀 단위 문자열인 경우 숫자로 변환
+  useEffect(() => {
+    if (!chartContainerRef.current || candleData.length === 0) return;
+
     const chartWidth = typeof width === 'string' && width.endsWith('px')
       ? parseInt(width)
       : chartContainerRef.current.clientWidth;
 
-    // 차트 생성
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: backgroundColor },
         textColor: textColor,
-        attributionLogo: true,
       },
       width: chartWidth,
       height: height,
@@ -51,10 +93,10 @@ function CandleChart({
       },
     });
 
-    // 캔들스틱 시리즈 추가
+    // lightweight-charts v5 - use CandlestickSeries
     const candlestickSeries = chart.addSeries(CandlestickSeries);
     
-    // 시리즈 스타일 옵션 설정
+    // Apply candlestick options
     candlestickSeries.applyOptions({
       upColor: upColor,
       downColor: downColor,
@@ -63,54 +105,19 @@ function CandleChart({
       wickDownColor: downColor,
     });
 
-    // 임의의 캔들 데이터 생성 함수
-    const generateCandleData = (): CandlestickData[] => {
-      const generatedData: CandlestickData[] = [];
-      const basePrice = 50000;
-      let currentPrice = basePrice;
-      const startTime = Math.floor(Date.now() / 1000) - 86400 * 30; // 30일 전
-
-      for (let i = 0; i < 100; i++) {
-        const timestamp = startTime + i * 3600; // 1시간 간격
-        
-        // 랜덤한 가격 변동
-        const change = (Math.random() - 0.5) * 2000;
-        currentPrice += change;
-        
-        const open = currentPrice;
-        const high = open + Math.random() * 1000;
-        const low = open - Math.random() * 1000;
-        const close = low + Math.random() * (high - low);
-
-        generatedData.push({
-          time: timestamp as any,
-          open: parseFloat(open.toFixed(2)),
-          high: parseFloat(high.toFixed(2)),
-          low: parseFloat(low.toFixed(2)),
-          close: parseFloat(close.toFixed(2)),
-        });
-
-        currentPrice = close;
-      }
-
-      return generatedData;
-    };
-
-    // 데이터 설정 (props로 받은 데이터가 있으면 사용, 없으면 임의 생성)
-    const candleData = data || generateCandleData();
     candlestickSeries.setData(candleData);
-
-    // 차트를 데이터에 맞게 자동 조정
     chart.timeScale().fitContent();
 
-    // 반응형 처리
+    chartRef.current = chart;
+    seriesRef.current = candlestickSeries;
+
     const handleResize = () => {
-      if (chartContainerRef.current) {
+      if (chartContainerRef.current && chartRef.current) {
         const chartWidth = typeof width === 'string' && width.endsWith('px')
           ? parseInt(width)
           : chartContainerRef.current.clientWidth;
         
-        chart.applyOptions({
+        chartRef.current.applyOptions({
           width: chartWidth,
         });
       }
@@ -118,12 +125,55 @@ function CandleChart({
 
     window.addEventListener('resize', handleResize);
 
-    // 클린업
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
     };
-  }, [data, height, width, backgroundColor, textColor, upColor, downColor]);
+  }, [candleData, height, width, backgroundColor, textColor, upColor, downColor]);
+
+  if (isLoading) {
+    return (
+      <div 
+        style={{ 
+          width: width, 
+          height: `${height}px`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: backgroundColor,
+          color: textColor,
+        }}
+      >
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4">Loading candle data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div 
+        style={{ 
+          width: width, 
+          height: `${height}px`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: backgroundColor,
+          color: '#ef5350',
+        }}
+      >
+        <div className="text-center">
+          <p className="text-lg font-semibold">Error loading data</p>
+          <p className="mt-2">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 

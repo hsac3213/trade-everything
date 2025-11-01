@@ -34,6 +34,40 @@ def get_brokers():
         "brokers": BrokerFactory.get_available_brokers()
     }
 
+@app.get("/symbols/{broker_name}")
+def get_symbols(broker_name: str):
+    """브로커의 거래 가능한 심볼 목록 조회"""
+    try:
+        broker = BrokerFactory.create_broker(broker_name)
+        symbols = broker.get_symbols()
+        return {
+            "message": "success",
+            "broker": broker_name,
+            "symbols": symbols
+        }
+    except Exception as e:
+        return {
+            "message": "error",
+            "error": str(e)
+        }
+
+@app.get("/candle/{broker_name}")
+def get_candle(broker_name: str, symbol: str, interval: str, start_time: str):
+    try:
+        broker = BrokerFactory.create_broker(broker_name)
+        candles = broker.get_candle(symbol, interval, start_time)
+        
+        return {
+            "message": "success",
+            "broker": broker_name,
+            "candles": candles
+        }
+    except Exception as e:
+        return {
+            "message": "error",
+            "error": str(e)
+        }
+
 @app.websocket("/ws/orderbook/{broker_name}/{symbol}")
 async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
     """호가 전용 WebSocket"""

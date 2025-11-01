@@ -1,11 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+interface TradingPair {
+  symbol: string;
+  display_name: string;
+  price: string;
+  change: string;
+  positive: boolean;
+  uniqueKey: string; // 고유 키 추가
+}
+
+interface PairProps {
+  broker?: string;
+}
 
 // --- 거래 페어 선택 컴포넌트 ---
-const Pair: React.FC = () => {
+const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
   const [selectedPair, setSelectedPair] = useState<string>('BTC/USDT');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [modalSearchTerm, setModalSearchTerm] = useState<string>('');
+  const [allSymbols, setAllSymbols] = useState<TradingPair[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  console.log('Pair component - broker prop:', broker);
 
   const tradingPairs = [
     { symbol: 'BTC/USDT', price: '43,250.00', change: '+2.45%', positive: true },
@@ -22,9 +39,57 @@ const Pair: React.FC = () => {
     pair.symbol.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const modalFilteredPairs = tradingPairs.filter(pair => 
+  const modalFilteredPairs = allSymbols.filter(pair => 
     pair.symbol.toLowerCase().includes(modalSearchTerm.toLowerCase())
   );
+
+    // 모달이 열릴 때 심볼 목록 가져오기
+  useEffect(() => {
+    if (isModalOpen) {
+      console.log('Fetching symbols for broker:', broker);
+      fetchSymbols(broker);
+    }
+  }, [isModalOpen, broker]);
+
+  const fetchSymbols = async (selectedBroker: string) => {
+    console.log('fetchSymbols called with:', selectedBroker);
+    setIsLoading(true);
+    setAllSymbols([]); // 기존 목록 초기화
+    try {
+      const url = `http://localhost:8001/symbols/${selectedBroker}`;
+      console.log('Fetching from URL:', url);
+      const response = await fetch(url);
+      const data = await response.json();
+      console.log('API Response:', data);
+      
+      if (data.message === 'success' && data.symbols && Array.isArray(data.symbols)) {
+        // 심볼을 표시 형식으로 변환 (더미 가격/등락률 추가)
+        const formattedSymbols: TradingPair[] = data.symbols.map((s: any) => {
+          // 더미 가격과 등락률 생성
+          const dummyPrice = (Math.random() * 10000).toFixed(2);
+          const dummyChange = ((Math.random() - 0.5) * 10).toFixed(2);
+          const isPositive = parseFloat(dummyChange) >= 0;
+          
+          return {
+            symbol: s.symbol,
+            display_name: s.display_name,
+            price: dummyPrice,
+            change: `${isPositive ? '+' : ''}${dummyChange}%`,
+            positive: isPositive,
+            uniqueKey: s.symbol // 고유한 심볼 코드를 키로 사용
+          };
+        });
+        
+        setAllSymbols(formattedSymbols);
+      } else {
+        console.error('Invalid response format:', data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch symbols:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handlePairSelect = (symbol: string) => {
     setSelectedPair(symbol);
@@ -105,10 +170,15 @@ const Pair: React.FC = () => {
 
             {/* 페어 목록 */}
             <div className="flex-1 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-              {modalFilteredPairs.length > 0 ? (
+              {isLoading ? (
+                <div className="text-center text-gray-400 py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="mt-2">Loading symbols...</p>
+                </div>
+              ) : modalFilteredPairs.length > 0 ? (
                 modalFilteredPairs.map((pair) => (
                   <div
-                    key={pair.symbol}
+                    key={pair.uniqueKey}
                     onClick={() => handlePairSelect(pair.symbol)}
                     className={`p-4 rounded-md cursor-pointer transition-colors ${
                       selectedPair === pair.symbol
@@ -117,7 +187,7 @@ const Pair: React.FC = () => {
                     }`}
                   >
                     <div className="flex justify-between items-center">
-                      <span className="font-semibold text-base">{pair.symbol}</span>
+                      <span className="font-semibold text-base">{pair.display_name}({pair.symbol})</span>
                       <span className={`text-sm font-medium ${pair.positive ? 'text-green-400' : 'text-red-400'}`}>
                         {pair.change}
                       </span>

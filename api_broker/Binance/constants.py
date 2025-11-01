@@ -1,6 +1,6 @@
 import os
 
-API_URL = ""
+API_URL = "https://api.binance.com"
 WSS_URL = "wss://stream.binance.com:9443"
 WS_URL = "wss://ws-api.binance.com:443/ws-api/v3"
 

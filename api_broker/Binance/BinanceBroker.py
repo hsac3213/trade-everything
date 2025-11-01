@@ -1,11 +1,12 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
 from .price import get_realtime_orderbook_price, get_realtime_trade_price
-from .constants import WSS_URL
+from .constants import API_URL, WSS_URL
 from typing import List, Dict, Any, Callable, Awaitable
 import websockets
 import json
-import traceback
 import asyncio
+import requests
+from datetime import datetime, timedelta
 
 # Endpoint 마다 rate limit 관리 코드 추가하기!!
 # HTTP 429 return code is used when breaking a request rate limit.
@@ -22,6 +23,41 @@ class BinanceBroker(BrokerInterface):
         self.orderbook_callback = None
 
         self.ws_orderbook = None
+
+    def get_symbols(self) -> List[Dict[str, Any]]:
+        """Binance 거래 가능한 심볼 목록 조회"""
+        try:
+            url = API_URL + "/api/v3/exchangeInfo"
+            params = {
+                "permissions": "SPOT",
+                "showPermissionSets": "false"
+            }
+            
+            resp = requests.get(url, params=params, timeout=10)
+            resp.raise_for_status()
+            
+            resp_json = resp.json()
+            
+            symbols = []
+            for symbol in resp_json["symbols"]:
+                # 거래 가능한 pair만 처리
+                if symbol["status"] == "TRADING":
+                    # USDT가 quote asset인 경우만 가져오기
+                    if symbol["quoteAsset"] == "USDT":
+                        symbols.append({
+                            "symbol": symbol["symbol"],
+                            "display_name": f"{symbol['baseAsset']}/{symbol['quoteAsset']} ({symbol['symbol']})",
+                        })
+            return symbols
+            
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error fetching symbols from Binance: {e}")
+            return []
+        except Exception as e:
+            print(f"❌ Unexpected error in get_symbols: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
     
     def get_account_assets(self) -> List[Dict[str, Any]]:
         return [
@@ -52,8 +88,56 @@ class BinanceBroker(BrokerInterface):
             'status': 'pending'
         }
     
-    def get_candle_data(self, crypto_pair: str):
-        print()
+    def get_candle(self, symbol: str, interval: str, start_time: str):
+        try:
+            symbol = symbol.upper()
+
+            # KST datetime 문자열을 UTC 타임스탬프로 변환
+            start_time_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+            start_time_utc_timestamp = start_time_dt.timestamp() * 1000
+
+            url = API_URL + "/api/v3/klines"
+            params = {
+                "symbol": symbol,
+                "interval": interval,
+                # 파라미터 이름 유의!(startTime, not start_time)
+                "startTime": int(start_time_utc_timestamp),
+                "limit": 1000,
+            }
+            
+            resp = requests.get(url, params=params, timeout=10)
+            resp.raise_for_status()
+            
+            resp_json = resp.json()
+
+            candles = []
+            for row in resp_json:
+                open_time_dt = datetime.fromtimestamp(int(row[0] / 1000.0))
+                open_time_str = open_time_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+                close_time_dt = datetime.fromtimestamp(int(row[6] / 1000.0))
+                close_time_str = close_time_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+                candles.append({
+                    "time": int(row[0] / 1000),  # lightweight-charts는 초 단위 timestamp 필요
+                    "open": float(row[1]),
+                    "high": float(row[2]),
+                    "low": float(row[3]),
+                    "close": float(row[4]),
+                    "volume": float(row[5]),  # 거래금액 (Quote Asset Volume)
+                })
+
+            return candles
+            
+        except requests.exceptions.RequestException as e:
+            print("[ get_candle ]")
+            print("requests.exceptions.RequestException")
+            return []
+        except Exception as e:
+            print("[ get_candle ]")
+            import traceback
+            traceback.print_exc()
+            return []
     
     async def subscribe_orderbook_async(self, crypto_pair: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         try:
