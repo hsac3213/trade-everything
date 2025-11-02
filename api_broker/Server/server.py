@@ -54,9 +54,10 @@ def get_symbols(broker_name: str):
 @app.get("/candle/{broker_name}")
 def get_candle(broker_name: str, symbol: str, interval: str, start_time: str):
     try:
+        print(start_time)
         broker = BrokerFactory.create_broker(broker_name)
         candles = broker.get_candle(symbol, interval, start_time)
-        
+
         return {
             "message": "success",
             "broker": broker_name,

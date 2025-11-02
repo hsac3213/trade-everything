@@ -7,11 +7,26 @@ const Order: React.FC = () => {
   const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPrice(e.target.value);
+    const value = e.target.value;
+    // 빈 문자열이거나 0 이상의 숫자만 허용
+    if (value === '' || (parseFloat(value) >= 0 && !isNaN(parseFloat(value)))) {
+      setPrice(value);
+    }
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAmount(e.target.value);
+    const value = e.target.value;
+    // 빈 문자열이거나 0 이상의 숫자만 허용
+    if (value === '' || (parseFloat(value) >= 0 && !isNaN(parseFloat(value)))) {
+      setAmount(value);
+    }
+  };
+  
+  // 마이너스, e, E, + 키 입력 방지
+  const preventInvalidKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+      e.preventDefault();
+    }
   };
 
   return (
@@ -48,10 +63,13 @@ const Order: React.FC = () => {
           <input
             type="number"
             id="price"
+            min="0"
+            step="0.01"
             value={price}
             onChange={handlePriceChange}
+            onKeyDown={preventInvalidKeys}
             className="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder=""
+            placeholder="0"
           />
         </div>
         <div>
@@ -61,10 +79,13 @@ const Order: React.FC = () => {
           <input
             type="number"
             id="amount"
+            min="0"
+            step="0.01"
             value={amount}
             onChange={handleAmountChange}
+            onKeyDown={preventInvalidKeys}
             className="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder=""
+            placeholder="0"
           />
         </div>
         
