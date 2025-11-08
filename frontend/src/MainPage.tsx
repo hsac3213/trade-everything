@@ -5,10 +5,6 @@ import Assets from './Assets';
 import Script from './Script';
 import License from './License';
 
-interface TradeMainProps {
-  onLogout?: () => void;
-}
-
 // --- 메뉴 헤더 컴포넌트 ---
 interface MenuHeaderProps {
   activeMenu: string;
@@ -42,7 +38,7 @@ const MenuHeader: React.FC<MenuHeaderProps> = ({ activeMenu, onMenuChange, menuI
 };
 
 // --- 메인 거래 컴포넌트 ---
-const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
+const TradeMain: React.FC = () => {
   const menuItems = ['Trade', 'Earn', 'Assets', 'Script', 'License'];
   const [activeMenu, setActiveMenu] = useState<string>('Trade');
 

@@ -3,9 +3,9 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-import queue
-import json
-import traceback
+
+# 인증 라우터 임포트
+from .auth import router as auth_router
 
 SERVER_NAME = "Trade Everything API Broker Server"
 SERVER_PORT = 8001
@@ -20,6 +20,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 인증 라우터 등록
+app.include_router(auth_router)
 
 @app.get("/")
 def get_root():

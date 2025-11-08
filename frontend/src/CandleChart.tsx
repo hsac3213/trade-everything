@@ -1,17 +1,101 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
-import type { CandlestickData, IChartApi, HistogramData, Time } from 'lightweight-charts';
+import type { CandlestickData, IChartApi } from 'lightweight-charts';
+
+const CANDLE_API_URL = "http://localhost:8001/candle";
 
 // 볼륨 정보를 포함한 캔들 데이터 타입
 interface CandleWithVolume extends CandlestickData {
   volume?: number;
 }
 
+// Datafeed 클래스
+class CandleDatafeed {
+  private _earliestDate: Date;
+  private _data: CandleWithVolume[];
+  private _broker: string;
+  private _symbol: string;
+  private _interval: string;
+  
+  constructor(broker: string, symbol: string, interval: string) {
+    this._broker = broker;
+    this._symbol = symbol;
+    this._interval = interval;
+    this._earliestDate = new Date();
+    this._earliestDate.setDate(this._earliestDate.getDate() - 30);
+    this._data = [];
+  }
+  
+  async getBars(numberOfExtraBars: number): Promise<CandleWithVolume[]> {
+    try {
+      // interval을 밀리초로 변환
+      const getIntervalMs = (interval: string): number => {
+        const value = parseInt(interval);
+        const unit = interval.slice(-1).toLowerCase();
+        
+        switch (unit) {
+          case 's': return value * 1000;
+          case 'm': return value * 60 * 1000;
+          case 'h': return value * 60 * 60 * 1000;
+          case 'd': return value * 24 * 60 * 60 * 1000;
+          default: return 60 * 60 * 1000;
+        }
+      };
+      
+      // numberOfExtraBars만큼 과거 시간 계산
+      const intervalMs = getIntervalMs(this._interval);
+      const startDate = new Date(this._earliestDate);
+      startDate.setTime(startDate.getTime() - (intervalMs * numberOfExtraBars));
+      
+      const startTime = startDate.toISOString().slice(0, 19).replace('T', ' ');
+      
+      // API 호출
+      const url = `${CANDLE_API_URL}/${this._broker}?symbol=${this._symbol}&interval=${this._interval}&start_time=${encodeURIComponent(startTime)}`;
+      console.log(`[Datafeed] Fetching from: ${url}`);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.message === 'success' && data.candles && Array.isArray(data.candles)) {
+        const newCandles: CandleWithVolume[] = data.candles;
+        
+        // 중복 제거
+        const existingTimes = new Set(this._data.map(c => Number(c.time)));
+        const uniqueNewCandles = newCandles.filter(c => !existingTimes.has(Number(c.time)));
+        
+        // 새 데이터를 앞에 추가하고 정렬
+        this._data = [...uniqueNewCandles, ...this._data];
+        this._data.sort((a, b) => Number(a.time) - Number(b.time));
+        
+        // 가장 오래된 날짜 업데이트
+        if (this._data.length > 0) {
+          this._earliestDate = new Date(Number(this._data[0].time) * 1000);
+        }
+        
+        return this._data;
+      } else {
+        throw new Error(data.error || 'Invalid response format');
+      }
+    } catch (err) {
+      console.error('[Datafeed] Failed to fetch data:', err);
+      return this._data; // 실패 시 기존 데이터 반환
+    }
+  }
+  
+  reset(broker: string, symbol: string, interval: string) {
+    this._broker = broker;
+    this._symbol = symbol;
+    this._interval = interval;
+    this._earliestDate = new Date();
+    this._earliestDate.setDate(this._earliestDate.getDate() - 30);
+    this._data = [];
+  }
+}
+
 interface CandleChartProps {
   broker?: string;
   symbol?: string;
   interval?: string;
-  startTime?: string;
   height?: number;
   width?: string;
   backgroundColor?: string;
@@ -24,7 +108,6 @@ function CandleChart({
   broker = 'Binance',
   symbol = 'BTCUSDT',
   interval = '1h',
-  startTime,
   height = 600,
   width = '100%',
   backgroundColor = '#1e1e1e',
@@ -37,76 +120,51 @@ function CandleChart({
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
+  const datafeedRef = useRef<CandleDatafeed | null>(null);
   const [candleData, setCandleData] = useState<CandleWithVolume[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // broker나 symbol이 변경되면 즉시 차트 초기화
+  // broker나 symbol이 변경되면 데이터 초기화
   useEffect(() => {
-    console.log(`🔄 [CandleChart] Broker or Symbol changed: ${broker}/${symbol} - Clearing chart data`);
-    
-    // 1. 데이터 초기화
     setCandleData([]);
     setIsLoading(true);
     setError(null);
-    
-    // 2. 기존 차트 제거
-    if (chartRef.current) {
-      console.log('🗑️ [CandleChart] Removing existing chart instance');
-      chartRef.current.remove();
-      chartRef.current = null;
-      candleSeriesRef.current = null;
-      volumeSeriesRef.current = null;
-    }
-    
-    console.log('✅ [CandleChart] Chart cleared, ready to load new data');
-  }, [broker, symbol]);
+    // datafeed 재생성
+    datafeedRef.current = new CandleDatafeed(broker, symbol, interval);
+  }, [broker, symbol, interval]);
 
   useEffect(() => {
-    const fetchCandleData = async () => {
+    const loadInitialData = async () => {
       setIsLoading(true);
       setError(null);
       
       try {
-        const defaultStartTime = startTime || (() => {
-          const date = new Date();
-          date.setDate(date.getDate() - 30);
-          return date.toISOString().slice(0, 19).replace('T', ' ');
-        })();
-        
-        const url = `http://localhost:8001/candle/${broker}?symbol=${symbol}&interval=${interval}&start_time=${encodeURIComponent(defaultStartTime)}`;
-        console.log(`📡 [CandleChart] Fetching candle data from: ${url}`);
-        
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        if (data.message === 'success' && data.candles && Array.isArray(data.candles)) {
-          console.log(`✅ [CandleChart] Loaded ${data.candles.length} candles for ${broker}/${symbol}`);
-          setCandleData(data.candles);
-        } else {
-          throw new Error(data.error || 'Invalid response format');
+        if (!datafeedRef.current) {
+          datafeedRef.current = new CandleDatafeed(broker, symbol, interval);
         }
+        
+        // 초기 200개 바 로드
+        const data = await datafeedRef.current.getBars(200);
+        setCandleData(data);
       } catch (err) {
-        console.error(`❌ [CandleChart] Failed to fetch candle data:`, err);
+        console.error(`[CandleChart] Failed to load initial data:`, err);
         setError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchCandleData();
-  }, [broker, symbol, interval, startTime]);
+    loadInitialData();
+  }, [broker, symbol, interval]);
 
   useEffect(() => {
     if (!chartContainerRef.current || candleData.length === 0) return;
-    
-    console.log(`📈 [CandleChart] Creating chart with ${candleData.length} candles for ${broker}/${symbol}`);
 
     const chartWidth = typeof width === 'string' && width.endsWith('px')
       ? parseInt(width)
       : chartContainerRef.current.clientWidth;
 
-    // === 하나의 차트 생성 (캔들과 볼륨을 별도 pane에 배치) ===
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: backgroundColor },
@@ -114,7 +172,7 @@ function CandleChart({
         panes: {
           separatorColor: '#2b2b43',
           separatorHoverColor: 'rgba(100, 100, 100, 0.3)',
-          enableResize: true, // 사용자가 pane 크기 조절 가능
+          enableResize: true,
         },
       },
       width: chartWidth,
@@ -133,16 +191,18 @@ function CandleChart({
         fixRightEdge: false,
       },
       crosshair: {
-        mode: 1, // Normal crosshair mode
+        mode: 0,
         vertLine: {
           width: 1,
           color: '#758696',
-          style: 3, // Dashed
+          style: 3,
+          labelVisible: true,
         },
         horzLine: {
           width: 1,
           color: '#758696',
-          style: 3, // Dashed
+          style: 3,
+          labelVisible: true,
         },
       },
       localization: {
@@ -160,7 +220,6 @@ function CandleChart({
       },
     });
 
-    // === 1. 캔들스틱 시리즈 추가 (pane 0 - 기본 pane) ===
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
       upColor: upColor,
       downColor: downColor,
@@ -171,14 +230,12 @@ function CandleChart({
 
     candlestickSeries.setData(candleData);
 
-    // === 2. 볼륨 히스토그램 시리즈 추가 (pane 1 - 새로운 pane) ===
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceFormat: {
         type: 'volume',
       },
-    }, 1); // pane index 1 지정
+    }, 1);
 
-    // 볼륨 데이터 변환 및 설정
     const volumeData = candleData.map(candle => ({
       time: candle.time,
       value: candle.volume || 0,
@@ -187,16 +244,17 @@ function CandleChart({
     
     volumeSeries.setData(volumeData);
 
-    // 볼륨 pane을 아래로 이동하고 높이 설정
     const volumePane = chart.panes()[1];
     if (volumePane) {
-      volumePane.setHeight(Math.floor(height * 0.3)); // 전체의 30%
+      volumePane.setHeight(Math.floor(height * 0.3));
     }
 
-    // 초기 범위 설정
-    chart.timeScale().fitContent();
+    // 마지막 30개 바만 보여주기
+    chart.timeScale().setVisibleLogicalRange({
+      from: Math.max(0, candleData.length - 30),
+      to: candleData.length
+    });
 
-    // === 3. Legend (OHLC 정보 표시) 설정 ===
     if (legendRef.current) {
       const updateLegend = (param: any) => {
         if (!legendRef.current) return;
@@ -219,7 +277,6 @@ function CandleChart({
             </div>
           `;
         } else {
-          // 마우스가 차트 밖으로 나가면 기본 정보만 표시
           legendRef.current.innerHTML = `
             <div style="color: ${textColor};">
               <strong>${symbol}</strong>
@@ -230,7 +287,6 @@ function CandleChart({
       
       chart.subscribeCrosshairMove(updateLegend);
       
-      // 초기 legend 표시
       legendRef.current.innerHTML = `
         <div style="color: ${textColor};">
           <strong>${symbol}</strong>
@@ -241,6 +297,38 @@ function CandleChart({
     chartRef.current = chart;
     candleSeriesRef.current = candlestickSeries;
     volumeSeriesRef.current = volumeSeries;
+
+    // 무한 스크롤 구현 (실제 API 호출)
+    chart.timeScale().subscribeVisibleLogicalRangeChange(logicalRange => {
+      if (!logicalRange || !datafeedRef.current) return;
+      
+      if (logicalRange.from < 10) {
+        // 추가 데이터 로드
+        const numberBarsToLoad = Math.ceil(50 - logicalRange.from);
+        console.log(`📍 [CandleChart] Near left edge, loading ${numberBarsToLoad} bars...`);
+        
+        // 비동기로 새로운 데이터 가져오기
+        datafeedRef.current.getBars(numberBarsToLoad).then(newData => {
+          // 로딩 딜레이 추가
+          setTimeout(() => {
+            if (candleSeriesRef.current && volumeSeriesRef.current) {
+              candleSeriesRef.current.setData(newData);
+              
+              const volumeData = newData.map(candle => ({
+                time: candle.time,
+                value: candle.volume || 0,
+                color: (candle.close >= candle.open) ? upColor : downColor,
+              }));
+              volumeSeriesRef.current.setData(volumeData);
+              
+              console.log(`✅ [CandleChart] Loaded ${numberBarsToLoad} additional bars, total: ${newData.length}`);
+            }
+          }, 250);
+        }).catch(err => {
+          console.error(`❌ [CandleChart] Failed to load more data:`, err);
+        });
+      }
+    });
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
@@ -259,12 +347,13 @@ function CandleChart({
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      chart.timeScale().subscribeVisibleLogicalRangeChange(() => {}); // 구독 해제
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
     };
-  }, [candleData, height, width, backgroundColor, textColor, upColor, downColor, symbol]);
+  }, [candleData, height, width, backgroundColor, textColor, upColor, downColor, symbol, broker, interval]);
 
   if (isLoading) {
     return (

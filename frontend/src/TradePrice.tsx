@@ -134,7 +134,23 @@ const TradePrice: React.FC<TradePriceProps> = ({
       
       {/* 헤더 */}
       <div className="grid grid-cols-3 gap-2 mb-1 text-xs text-gray-400">
-        <span>Price</span>
+        <span 
+          className="cursor-help relative group"
+          title="Red: Seller filled (buyer's order was waiting) | Green: Buyer filled (seller's order was waiting)"
+        >
+          Price
+          {/* 툴팁 - 위쪽으로 표시 */}
+          <div className="absolute left-0 bottom-full mb-1 w-64 bg-gray-900 text-white text-xs rounded-md p-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 border border-gray-700">
+            <div className="space-y-1">
+              <div className="text-red-400">
+                Red: Seller filled (buyer's order was waiting)
+              </div>
+              <div className="text-green-400">
+                Green: Buyer filled (seller's order was waiting)
+              </div>
+            </div>
+          </div>
+        </span>
         <span className="text-right">Amount</span>
         <span className="text-right">Time</span>
       </div>

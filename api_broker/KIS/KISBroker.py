@@ -28,6 +28,7 @@ class KISBroker(BrokerInterface):
 
     def get_symbols(self) -> List[Dict[str, Any]]:
         try:
+            # 아래 파일은 업데이트될 가능성이 있음에 유의
             df = pd.read_table(f"./KIS/NASMST.COD",sep="\t",encoding="cp949", header=None)
             
             symbols = []
@@ -42,10 +43,10 @@ class KISBroker(BrokerInterface):
             
             return symbols
         except requests.exceptions.RequestException as e:
-            print(f"❌ Error fetching symbols from Binance: {e}")
+            print(f"Error fetching symbols from Binance: {e}")
             return []
         except Exception as e:
-            print(f"❌ Unexpected error in get_symbols: {e}")
+            print(f"Unexpected error in get_symbols: {e}")
             import traceback
             traceback.print_exc()
             return []

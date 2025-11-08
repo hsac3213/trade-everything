@@ -1,21 +1,29 @@
 import React, { useState } from 'react';
-import SimpleChart from './CandleChart';
+import CandleChart from './CandleChart';
 import OrderBook from './OrderBook';
 import Order from './Order';
 import Pair from './Pair';
 import OpenOrder from './OpenOrder';
 import TradePrice from './TradePrice';
 
-// --- 차트 플레이스홀더 ---
-const ChartPlaceholder: React.FC = () => {
+// 차트 플레이스홀더
+interface ChartPlaceholderProps {
+  broker: string;
+  symbol: string;
+}
+
+const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol }) => {
   const [timeframe, setTimeframe] = useState<string>('1D');
+  
+  console.log(`📊 [Trade.tsx] ChartPlaceholder rendering with broker: ${broker}, symbol: ${symbol}`);
   
   const timeframes = [
     { value: 'Tick', label: 'Tick' },
-    { value: '1S', label: '1S' },
-    { value: '1M', label: '1M' },
+    { value: '1s', label: '1s' },
+    { value: '1m', label: '1m' },
     { value: '1H', label: '1H' },
     { value: '1D', label: '1D' },
+    { value: '1W', label: '1W' },
   ];
 
   return (
@@ -41,7 +49,13 @@ const ChartPlaceholder: React.FC = () => {
       
       {/* 차트 영역 */}
       <div className="flex items-start justify-center h-[460px]">
-        <SimpleChart height={460} width="1300px" />
+        <CandleChart
+          height={460} 
+          width="1300px"
+          broker={broker}
+          symbol={symbol}
+          key={`candle-${broker}-${symbol}`}
+        />
       </div>
       
       {/* 하단 영역: 거래 페어 선택 & Open Orders */}
@@ -59,6 +73,33 @@ const ChartPlaceholder: React.FC = () => {
 const Trade: React.FC = () => {
   const [exchange, setExchange] = useState<string>('Binance');
   const [symbol, setSymbol] = useState<string>('btcusdt');
+  
+  // 거래소 변경 핸들러
+  const handleExchangeChange = (newExchange: string) => {
+    console.log(`[Trade.tsx] Changing exchange from ${exchange} to ${newExchange}`);
+    
+    // 1. 거래소 변경
+    setExchange(newExchange);
+    
+    // 2. 심볼 초기화 (각 거래소의 기본 심볼로)
+    const defaultSymbol = getDefaultSymbol(newExchange);
+    setSymbol(defaultSymbol);
+    
+    console.log(`[Trade.tsx] Exchange changed to ${newExchange}, symbol reset to ${defaultSymbol}`);
+  };
+  
+  // 거래소별 기본 심볼 반환
+  const getDefaultSymbol = (exchangeName: string): string => {
+    switch (exchangeName) {
+      case 'Binance':
+      case 'UPBit':
+        return 'btcusdt';
+      case 'KIS':
+        return '005930';
+      default:
+        return 'Unknown';
+    }
+  };
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -68,7 +109,7 @@ const Trade: React.FC = () => {
         <select
           id="exchange-select"
           value={exchange}
-          onChange={(e) => setExchange(e.target.value)}
+          onChange={(e) => handleExchangeChange(e.target.value)}
           className="bg-gray-800 text-white border border-gray-600 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
         >
           <option value="Binance">Binance</option>
@@ -76,18 +117,22 @@ const Trade: React.FC = () => {
           <option value="UPBit">UPBit</option>
         </select>
         
-        <OrderBook broker={exchange} symbol={symbol} />
+        <OrderBook broker={exchange} symbol={symbol} key={`orderbook-${exchange}-${symbol}`} />
       </aside>
 
       {/* 중앙: 차트 */}
       <main className="w-full lg:w-auto flex">
-        <ChartPlaceholder />
+        <ChartPlaceholder 
+          broker={exchange}
+          symbol={symbol}
+          key={`chart-${exchange}-${symbol}`}
+        />
       </main>
 
       {/* 오른쪽: 거래 페어 선택 & 체결가격 */}
       <aside className="w-full lg:w-[300px] flex flex-col gap-2">
-        <Pair broker={exchange} />
-        <TradePrice broker={exchange} symbol={symbol} />
+        <Pair broker={exchange} key={`pair-${exchange}`} />
+        <TradePrice broker={exchange} symbol={symbol} key={`tradeprice-${exchange}-${symbol}`} />
       </aside>
     </div>
   );

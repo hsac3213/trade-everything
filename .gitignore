@@ -1,5 +1,13 @@
 .tevenv/
 /Token
 __pycache__/
+
+# Token
 /api_broker/Token
 /frontend/Token
+
+# Certificates
+*.crt
+*.key
+*.csr
+*.srl

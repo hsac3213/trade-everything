@@ -1,76 +1,9 @@
 import React, { useState } from 'react';
-import SimpleChart from './CandleChart';
 import OrderBook from './OrderBook';
-import Order from './Order';
 import Pair from './Pair';
-import OpenOrder from './OpenOrder';
 import TradePrice from './TradePrice';
 import Earn from './Earn';
 import Assets from './Assets';
-
-// --- 차트 플레이스홀더 ---
-interface ChartPlaceholderProps {
-  broker: string;
-  symbol: string;
-}
-
-const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol }) => {
-  const [timeframe, setTimeframe] = useState<string>('1D');
-  
-  const timeframes = [
-    { value: 'Tick', label: 'Tick' },
-    { value: '1S', label: '1S' },
-    { value: '1M', label: '1M' },
-    { value: '1H', label: '1H' },
-    { value: '1D', label: '1D' },
-  ];
-  
-  // broker나 symbol이 변경되면 로그 출력
-  console.log(`📊 ChartPlaceholder rendering with broker: ${broker}, symbol: ${symbol}`);
-
-  return (
-    <div className="w-[1300px] bg-gray-800 rounded-lg shadow-lg flex flex-col">
-      {/* 주기 선택 버튼들 - 상단 영역 */}
-      <div className="p-3 border-b border-gray-700">
-        <div className="flex gap-1">
-          {timeframes.map((tf) => (
-            <button
-              key={tf.value}
-              onClick={() => setTimeframe(tf.value)}
-              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                timeframe === tf.value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-900 text-gray-400 hover:bg-gray-700 hover:text-white'
-              }`}
-            >
-              {tf.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      
-      {/* 차트 영역 */}
-      <div className="flex items-start justify-center h-[460px]">
-        <SimpleChart 
-          key={`candle-${broker}-${symbol}`}
-          height={460} 
-          width="1300px" 
-          broker={broker}
-          symbol={symbol}
-        />
-      </div>
-      
-      {/* 하단 영역: 거래 페어 선택 & Open Orders */}
-      <div className="flex gap-4 p-4">
-        {/* 좌측: 주문 */}
-        <Order />
-        
-        {/* 우측: Open Orders */}
-        <OpenOrder />
-      </div>
-    </div>
-  );
-};
 
 interface TradeMainProps {
   onLogout?: () => void;
@@ -154,15 +87,6 @@ const TradeMain: React.FC<TradeMainProps> = ({ onLogout }) => {
                 
                 <OrderBook broker={exchange} symbol={symbol} key={`orderbook-${exchange}-${symbol}`} />
               </aside>
-
-              {/* 중앙: 차트 */}
-              <main className="w-full lg:w-auto flex">
-                <ChartPlaceholder 
-                  broker={exchange} 
-                  symbol={symbol}
-                  key={`chart-${exchange}-${symbol}`} 
-                />
-              </main>
 
               {/* 오른쪽: 거래 페어 선택 & 체결가격 */}
               <aside className="w-full lg:w-[300px] flex flex-col gap-2">

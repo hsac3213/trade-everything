@@ -1,7 +1,0 @@
-CREATE USER IF NOT EXISTS 'tradeuser'@'%' IDENTIFIED BY 'trade2025!';
-
-CREATE DATABASE IF NOT EXISTS tradedb;
-
-GRANT ALL PRIVILEGES ON tradedb.* TO 'tradeuser'@'%';
-
-FLUSH PRIVILEGES;

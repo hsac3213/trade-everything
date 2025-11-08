@@ -4,7 +4,7 @@ import {
 } from '@simplewebauthn/browser';
 
 // Python FastAPI 서버 주소
-const API_URL = 'http://192.168.0.21:8000';
+const API_URL = 'http://localhost:8001';
 
 // ==================
 // 1. 키 등록 (Registration)
@@ -12,7 +12,7 @@ const API_URL = 'http://192.168.0.21:8000';
 export const handleRegister = async (username: string) => {
   try {
     // Get registration options from server
-    const resp = await fetch(`${API_URL}/register/begin`, {
+    const resp = await fetch(`${API_URL}/auth/passkey/register/begin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: username }),
@@ -33,7 +33,7 @@ export const handleRegister = async (username: string) => {
     const attResp = await startRegistration(options);
     
     // Send attestation response to server for verification
-    const verificationResp = await fetch(`${API_URL}/register/complete`, {
+    const verificationResp = await fetch(`${API_URL}/auth/passkey/register/complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -63,7 +63,7 @@ export const handleRegister = async (username: string) => {
 export const handleLogin = async (username: string) => {
   try {
     // Get authentication options from server
-    const resp = await fetch(`${API_URL}/login/begin`, {
+    const resp = await fetch(`${API_URL}/auth/passkey/login/begin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: username }),
@@ -83,7 +83,7 @@ export const handleLogin = async (username: string) => {
     const asseResp = await startAuthentication(options);
     
     // Send assertion response to server for verification
-    const verificationResp = await fetch(`${API_URL}/login/complete`, {
+    const verificationResp = await fetch(`${API_URL}/auth/passkey/login/complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
