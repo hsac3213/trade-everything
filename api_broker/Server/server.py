@@ -4,8 +4,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
-# 인증 라우터 임포트
+# 라우터 import
 from .auth import router as auth_router
+from .user_settings_router import router as user_settings_router
 
 SERVER_NAME = "Trade Everything API Broker Server"
 SERVER_PORT = 8001
@@ -21,8 +22,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 인증 라우터 등록
+# 라우터 등록
 app.include_router(auth_router)
+app.include_router(user_settings_router)
 
 @app.get("/")
 def get_root():

@@ -99,7 +99,7 @@ class SecureSessionManager:
         """
         ttl = int((exp - datetime.utcnow()).total_seconds())
         if ttl > 0:
-            self.redis_client.set(key=f"blacklist:{jti}", value="1", ex=ttl)
+            self.redis_client.set(name=f"blacklist:{jti}", value="1", ex=ttl)
             print(f"🔒 Token blacklisted: {jti}")
     
     def is_token_blacklisted(self, jti: str) -> bool:
@@ -171,7 +171,7 @@ class SecureSessionManager:
             세션 데이터 또는 None
         """
         session_key = f"session:{token}"
-        session_data = self.redis_client.get(key=session_key)
+        session_data = self.redis_client.get(name=session_key)
         
         if session_data:
             return json.loads(session_data)
@@ -214,10 +214,9 @@ class SecureSessionManager:
         """
         session_key = f"session:{token}"
         self.redis_client.expire(
-            session_key,
-            timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            name=session_key,
+            time=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         )
-        self.redis_client.expire(key=session_key, time_expire=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     
     def delete_session(self, token: str, user_id: int) -> None:
         """
@@ -228,7 +227,7 @@ class SecureSessionManager:
             user_id: 사용자 ID
         """
         session_key = f"session:{token}"
-        self.redis_client.delete(key=session_key)
+        self.redis_client.delete(name=session_key)
         
         # 사용자 세션 목록에서 제거
         self.redis_client.srem(f"user_sessions:{user_id}", token)

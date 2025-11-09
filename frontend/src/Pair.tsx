@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SecureAuthService } from './AuthService';
 
 interface TradingPair {
   symbol: string;
@@ -22,21 +23,78 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
   const [allSymbols, setAllSymbols] = useState<TradingPair[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set()); // 즐겨찾기 상태
+  const [favoritePairs, setFavoritePairs] = useState<TradingPair[]>([]); // 즐겨찾기 페어 목록
 
-  console.log('Pair component - broker prop:', broker);
+  // 즐겨찾기 목록 로드
+  useEffect(() => {
+    loadFavorites();
+  }, [broker]);
 
-  const tradingPairs = [
-    { symbol: 'BTC/USDT', price: '43,250.00', change: '+2.45%', positive: true },
-    { symbol: 'ETH/USDT', price: '2,280.50', change: '+1.85%', positive: true },
-    { symbol: 'BNB/USDT', price: '315.20', change: '-0.52%', positive: false },
-    { symbol: 'SOL/USDT', price: '98.75', change: '+5.12%', positive: true },
-    { symbol: 'XRP/USDT', price: '0.6234', change: '-1.23%', positive: false },
-    { symbol: 'ADA/USDT', price: '0.4512', change: '+0.89%', positive: true },
-    { symbol: 'DOGE/USDT', price: '0.0825', change: '+3.21%', positive: true },
-    { symbol: 'AVAX/USDT', price: '36.45', change: '-2.15%', positive: false },
-  ];
+  const loadFavorites = async () => {
+    try {
+      const token = SecureAuthService.getAccessToken();
+      if (!token) {
+        // 로그인하지 않은 경우 기본 목록 표시
+        setFavoritePairs([
+          { symbol: 'BTCUSDT', display_name: 'BTC/USDT', price: '43,250.00', change: '+2.45%', positive: true, uniqueKey: 'BTCUSDT' },
+          { symbol: 'ETHUSDT', display_name: 'ETH/USDT', price: '2,280.50', change: '+1.85%', positive: true, uniqueKey: 'ETHUSDT' },
+          { symbol: 'BNBUSDT', display_name: 'BNB/USDT', price: '315.20', change: '-0.52%', positive: false, uniqueKey: 'BNBUSDT' },
+          { symbol: 'SOLUSDT', display_name: 'SOL/USDT', price: '98.75', change: '+5.12%', positive: true, uniqueKey: 'SOLUSDT' },
+        ]);
+        return;
+      }
 
-  const filteredPairs = tradingPairs.filter(pair => 
+      const url = broker 
+        ? `http://localhost:8001/api/favorites/list?broker=${encodeURIComponent(broker)}`
+        : 'http://localhost:8001/api/favorites/list';
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const favoriteSymbols = new Set<string>(data.map((item: any) => item.symbol));
+        setFavorites(favoriteSymbols);
+        
+        // 즐겨찾기 목록을 TradingPair 형식으로 변환
+        const favoritePairsList: TradingPair[] = data.map((item: any) => {
+          // 더미 가격과 등락률 생성
+          const dummyPrice = (Math.random() * 10000).toFixed(2);
+          const dummyChange = ((Math.random() - 0.5) * 10).toFixed(2);
+          const isPositive = parseFloat(dummyChange) >= 0;
+          
+          return {
+            symbol: item.symbol,
+            display_name: item.display_name || item.symbol,
+            price: dummyPrice,
+            change: `${isPositive ? '+' : ''}${dummyChange}%`,
+            positive: isPositive,
+            uniqueKey: item.symbol
+          };
+        });
+        
+        setFavoritePairs(favoritePairsList);
+      } else {
+        // 에러 시 기본 목록 표시
+        setFavoritePairs([
+          { symbol: 'BTCUSDT', display_name: 'BTC/USDT', price: '43,250.00', change: '+2.45%', positive: true, uniqueKey: 'BTCUSDT' },
+          { symbol: 'ETHUSDT', display_name: 'ETH/USDT', price: '2,280.50', change: '+1.85%', positive: true, uniqueKey: 'ETHUSDT' },
+        ]);
+      }
+    } catch (error) {
+      console.error('Failed to load favorites:', error);
+      // 에러 시 기본 목록 표시
+      setFavoritePairs([
+        { symbol: 'BTCUSDT', display_name: 'BTC/USDT', price: '43,250.00', change: '+2.45%', positive: true, uniqueKey: 'BTCUSDT' },
+        { symbol: 'ETHUSDT', display_name: 'ETH/USDT', price: '2,280.50', change: '+1.85%', positive: true, uniqueKey: 'ETHUSDT' },
+      ]);
+    }
+  };
+
+  const filteredPairs = favoritePairs.filter(pair => 
     pair.symbol.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -45,39 +103,88 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
   );
   
   // 즐겨찾기 토글 핸들러
-  const toggleFavorite = (symbol: string, event: React.MouseEvent) => {
+  const toggleFavorite = async (symbol: string, displayName: string, event: React.MouseEvent) => {
     event.stopPropagation(); // 페어 선택 이벤트 방지
-    setFavorites(prev => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(symbol)) {
-        newFavorites.delete(symbol);
-        console.log(`⭐ Removed from favorites: ${symbol}`);
+    
+    const token = SecureAuthService.getAccessToken();
+    if (!token) {
+      alert('Please login to use favorites feature');
+      return;
+    }
+
+    const isFavorite = favorites.has(symbol);
+    
+    try {
+      if (isFavorite) {
+        // 즐겨찾기 제거
+        const response = await fetch(
+          `http://localhost:8001/api/favorites/remove?broker=${encodeURIComponent(broker)}&symbol=${encodeURIComponent(symbol)}`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+
+        if (response.ok) {
+          setFavorites(prev => {
+            const newFavorites = new Set(prev);
+            newFavorites.delete(symbol);
+            return newFavorites;
+          });
+          // 즐겨찾기 목록 새로고침
+          loadFavorites();
+        } else if (response.status === 401) {
+          alert('Session expired - please login again');
+        }
       } else {
-        newFavorites.add(symbol);
-        console.log(`⭐ Added to favorites: ${symbol}`);
+        // 즐겨찾기 추가
+        const response = await fetch('http://localhost:8001/api/favorites/add', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            broker,
+            symbol,
+            display_name: displayName
+          })
+        });
+
+        if (response.ok) {
+          setFavorites(prev => {
+            const newFavorites = new Set(prev);
+            newFavorites.add(symbol);
+            return newFavorites;
+          });
+          // 즐겨찾기 목록 새로고침
+          loadFavorites();
+        } else if (response.status === 401) {
+          alert('Session expired - please login again');
+        }
       }
-      return newFavorites;
-    });
+    } catch (error) {
+      console.error('Network error:', error);
+      alert('Failed to update favorites. Please check your connection.');
+    }
   };
 
     // 모달이 열릴 때 심볼 목록 가져오기
   useEffect(() => {
     if (isModalOpen) {
-      console.log('Fetching symbols for broker:', broker);
       fetchSymbols(broker);
     }
   }, [isModalOpen, broker]);
 
   const fetchSymbols = async (selectedBroker: string) => {
-    console.log('fetchSymbols called with:', selectedBroker);
     setIsLoading(true);
     setAllSymbols([]); // 기존 목록 초기화
     try {
       const url = `http://localhost:8001/symbols/${selectedBroker}`;
-      console.log('Fetching from URL:', url);
       const response = await fetch(url);
       const data = await response.json();
-      console.log('API Response:', data);
       
       if (data.message === 'success' && data.symbols && Array.isArray(data.symbols)) {
         // 심볼을 표시 형식으로 변환 (더미 가격/등락률 추가)
@@ -98,8 +205,6 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
         });
         
         setAllSymbols(formattedSymbols);
-      } else {
-        console.error('Invalid response format:', data);
       }
     } catch (error) {
       console.error('Failed to fetch symbols:', error);
@@ -206,7 +311,7 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
                     <div className="flex items-center gap-2">
                       {/* 별 모양 버튼 */}
                       <button
-                        onClick={(e) => toggleFavorite(pair.symbol, e)}
+                        onClick={(e) => toggleFavorite(pair.symbol, pair.display_name, e)}
                         className={`flex-shrink-0 p-1 rounded transition-colors ${
                           favorites.has(pair.symbol)
                             ? 'text-yellow-400 hover:text-yellow-500'
