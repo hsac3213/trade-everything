@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSharedTradeWebSocket } from './useSharedTradeWebSocket';
 
 // --- 타입 정의 ---
 
@@ -44,77 +45,29 @@ const TradePrice: React.FC<TradePriceProps> = ({
 }) => {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
   const MAX_TRADES = 30; // 최대 30개까지 보관
 
-  // WebSocket 연결 (체결 데이터)
+  // 공유 WebSocket Hook으로 실시간 체결가 구독
+  const tradeData = useSharedTradeWebSocket(broker, symbol);
+
+  // 체결 데이터가 업데이트될 때마다 trades 배열에 추가
   useEffect(() => {
-    let isMounted = true;
-    const ws = new WebSocket(`ws://localhost:8001/ws/trade/${broker}/${symbol}`);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      if (isMounted) {
-        console.log(`✅ Connected to ${broker} ${symbol} trade price`);
-        setIsConnected(true);
-      }
-    };
-
-    ws.onmessage = (event) => {
-      if (!isMounted) return; // 언마운트된 경우 무시
+    if (tradeData && tradeData.price) {
+      setIsConnected(true);
       
-      try {
-        const data = JSON.parse(event.data);
-        
-        // ping 메시지 무시
-        if (data.type === 'ping') {
-          return;
-        }
-        
-        // 체결 데이터 업데이트
-        if (data.price && data.quantity !== undefined) {
-          const newTrade: Trade = {
-            price: data.price,
-            quantity: data.quantity,
-            time: data.time || new Date().toLocaleTimeString('en-US', { hour12: false }),
-            isBuyerMaker: data.isBuyerMaker || false,
-          };
-          
-          // 새 체결을 맨 위에 추가하고 최대 30개까지만 유지
-          setTrades(prevTrades => [newTrade, ...prevTrades].slice(0, MAX_TRADES));
-        }
-        
-      } catch (error) {
-        console.error('Error parsing trade data:', error);
-      }
-    };
-
-    ws.onerror = (error) => {
-      if (isMounted) {
-        console.error('WebSocket error:', error);
-        setIsConnected(false);
-      }
-    };
-
-    ws.onclose = () => {
-      if (isMounted) {
-        console.log('🔌 WebSocket disconnected');
-        setIsConnected(false);
-      }
-    };
-
-    // Cleanup: 컴포넌트 언마운트 시 연결 해제
-    return () => {
-      console.log('🧹 Cleaning up WebSocket connection');
-      isMounted = false; // 언마운트 표시
+      const newTrade: Trade = {
+        price: Number(tradeData.price),
+        quantity: Number(tradeData.volume || 0),
+        time: tradeData.timestamp 
+          ? new Date(tradeData.timestamp).toLocaleTimeString('en-US', { hour12: false })
+          : new Date().toLocaleTimeString('en-US', { hour12: false }),
+        isBuyerMaker: tradeData.side === 'sell', // sell이면 매도 체결 (빨강)
+      };
       
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close();
-      }
-      
-      wsRef.current = null;
-    };
-  }, [broker, symbol]);
+      // 새 체결을 맨 위에 추가하고 최대 30개까지만 유지
+      setTrades(prevTrades => [newTrade, ...prevTrades].slice(0, MAX_TRADES));
+    }
+  }, [tradeData]);
 
   return (
     <div className="bg-gray-800 p-3 rounded-lg shadow-lg h-[426px] flex flex-col">

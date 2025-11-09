@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSharedTradeWebSocket } from './useSharedTradeWebSocket';
 
 // --- 타입 정의 ---
 
@@ -84,11 +85,13 @@ const OrderBook: React.FC<OrderBookProps> = ({
   const [asks, setAsks] = useState<Order[]>([]);
   const [bids, setBids] = useState<Order[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [currentPrice, setCurrentPrice] = useState<number>(0);
   const wsRef = useRef<WebSocket | null>(null);
-  const wsTradeRef = useRef<WebSocket | null>(null);
+  
+  // 공유 WebSocket Hook으로 실시간 체결가 구독
+  const tradeData = useSharedTradeWebSocket(broker, symbol);
+  const currentPrice = tradeData?.price ? Number(tradeData.price) : 0;
 
-  // WebSocket 연결
+  // WebSocket 연결 (호가창 데이터용)
   useEffect(() => {
     let isMounted = true; // cleanup 플래그
     const ws = new WebSocket(`ws://localhost:8001/ws/orderbook/${broker}/${symbol}`);
@@ -147,58 +150,6 @@ const OrderBook: React.FC<OrderBookProps> = ({
       }
       
       wsRef.current = null;
-    };
-  }, [broker, symbol]);
-
-  // 실시간 체결가 구독 (현재가 표시용)
-  useEffect(() => {
-    let isMounted = true;
-    const ws = new WebSocket(`ws://localhost:8001/ws/trade/${broker}/${symbol}`);
-    wsTradeRef.current = ws;
-
-    ws.onopen = () => {
-      if (isMounted) {
-        console.log(`✅ Connected to ${broker} ${symbol} trade for current price`);
-      }
-    };
-
-    ws.onmessage = (event) => {
-      if (!isMounted) return;
-      
-      try {
-        const data = JSON.parse(event.data);
-        
-        // 체결가 데이터가 있으면 현재가 업데이트
-        if (data.price) {
-          setCurrentPrice(Number(data.price));
-        }
-      } catch (error) {
-        console.error('Error parsing trade data:', error);
-      }
-    };
-
-    ws.onerror = (error) => {
-      if (isMounted) {
-        console.error('Trade WebSocket error:', error);
-      }
-    };
-
-    ws.onclose = () => {
-      if (isMounted) {
-        console.log('🔌 Trade WebSocket disconnected');
-      }
-    };
-
-    // Cleanup
-    return () => {
-      console.log('🧹 Cleaning up Trade WebSocket connection');
-      isMounted = false;
-      
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close();
-      }
-      
-      wsTradeRef.current = null;
     };
   }, [broker, symbol]);
 
