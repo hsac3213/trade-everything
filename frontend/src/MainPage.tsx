@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Trade from './Trade';
+import Trade from './Trade/Trade';
 import Earn from './Earn';
 import Assets from './Assets';
 import Script from './Script';

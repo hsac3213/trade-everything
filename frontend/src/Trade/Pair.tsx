@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SecureAuthService } from './AuthService';
+import { SecureAuthService } from '../Auth/AuthService';
 
 interface TradingPair {
   symbol: string;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSharedTradeWebSocket } from './useSharedTradeWebSocket';
+import { useSharedTradeWebSocket } from './SharedTradePriceWebsocket';
 
 // --- 타입 정의 ---
 
