@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Trade from './Trade/Trade';
-import Earn from './Earn';
 import Assets from './Assets';
 import Script from './Script';
 import License from './License';
@@ -39,7 +38,7 @@ const MenuHeader: React.FC<MenuHeaderProps> = ({ activeMenu, onMenuChange, menuI
 
 // --- 메인 거래 컴포넌트 ---
 const TradeMain: React.FC = () => {
-  const menuItems = ['Trade', 'Earn', 'Assets', 'Script', 'License'];
+  const menuItems = ['Trade', 'Assets', 'Script', 'License'];
   const [activeMenu, setActiveMenu] = useState<string>('Trade');
 
   // 메뉴별 컨텐츠 렌더링
@@ -50,14 +49,6 @@ const TradeMain: React.FC = () => {
           <>
             <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
             <Trade />
-          </>
-        );
-      
-      case 'Earn':
-        return (
-          <>
-            <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
-            <Earn />
           </>
         );
       

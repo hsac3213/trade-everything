@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
-import type { CandlestickData, IChartApi } from 'lightweight-charts';
+import type { CandlestickData, IChartApi, Time } from 'lightweight-charts';
 import { API_URL } from '../common/constants';
+import { useSharedTradeWebSocket } from '../common/useSharedTradeWebSocket';
 
 const CANDLE_API_URL = `${API_URL}/candle`;
 
@@ -125,6 +126,9 @@ function CandleChart({
   const [candleData, setCandleData] = useState<CandleWithVolume[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // 실시간 체결가 구독
+  const tradeData = useSharedTradeWebSocket(broker, symbol.toLowerCase());
 
   // broker나 symbol이 변경되면 데이터 초기화
   useEffect(() => {
@@ -159,6 +163,84 @@ function CandleChart({
     loadInitialData();
   }, [broker, symbol, interval]);
 
+  // 실시간 가격 업데이트 (마지막 캔들 정보를 ref로 관리)
+  const lastCandleRef = useRef<CandleWithVolume | null>(null);
+
+  useEffect(() => {
+    if (!candleSeriesRef.current || !tradeData || !tradeData.price) {
+      return;
+    }
+
+    const price = Number(tradeData.price);
+    if (isNaN(price)) return;
+
+    // 마지막 캔들 정보 가져오기 (ref 사용)
+    if (!lastCandleRef.current && candleData.length > 0) {
+      lastCandleRef.current = { ...candleData[candleData.length - 1] };
+    }
+
+    if (!lastCandleRef.current) return;
+
+    const currentTime = Math.floor(Date.now() / 1000);
+    
+    // interval을 초로 변환
+    const getIntervalSeconds = (interval: string): number => {
+      const value = parseInt(interval);
+      const unit = interval.slice(-1).toLowerCase();
+      
+      switch (unit) {
+        case 's': return value;
+        case 'm': return value * 60;
+        case 'h': return value * 60 * 60;
+        case 'd': return value * 24 * 60 * 60;
+        default: return 60 * 60;
+      }
+    };
+    
+    const intervalSeconds = getIntervalSeconds(interval);
+    const lastCandleTime = Number(lastCandleRef.current.time);
+    const timeDiff = currentTime - lastCandleTime;
+    
+    // 같은 캔들 기간 내에 있는지 확인
+    if (timeDiff < intervalSeconds) {
+      // 기존 캔들 업데이트 (ref만 업데이트)
+      const updatedCandle: CandleWithVolume = {
+        time: lastCandleRef.current.time,
+        open: lastCandleRef.current.open,
+        high: Math.max(lastCandleRef.current.high, price),
+        low: Math.min(lastCandleRef.current.low, price),
+        close: price,
+        volume: lastCandleRef.current.volume,
+      };
+      
+      // ref 업데이트
+      lastCandleRef.current = updatedCandle;
+      
+      // 차트만 업데이트 (상태 업데이트 없음 - 리렌더링 방지)
+      candleSeriesRef.current.update(updatedCandle);
+    } else {
+      // 새 캔들 생성 (다음 기간으로 넘어감)
+      const newCandleTime = (lastCandleTime + intervalSeconds) as Time;
+      
+      if (currentTime >= (newCandleTime as number)) {
+        const newCandle: CandleWithVolume = {
+          time: newCandleTime,
+          open: price,
+          high: price,
+          low: price,
+          close: price,
+          volume: 0,
+        };
+        
+        // ref 업데이트
+        lastCandleRef.current = newCandle;
+        
+        // 차트에 새 캔들 추가
+        candleSeriesRef.current.update(newCandle);
+      }
+    }
+  }, [tradeData, interval]);
+
   useEffect(() => {
     if (!chartContainerRef.current || candleData.length === 0) return;
 
@@ -190,6 +272,7 @@ function CandleChart({
         rightBarStaysOnScroll: false,
         fixLeftEdge: false,
         fixRightEdge: false,
+        lockVisibleTimeRangeOnResize: true,
       },
       crosshair: {
         mode: 0,

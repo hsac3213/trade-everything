@@ -1,10 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+interface OrderProps {
+  selectedPrice?: number | null;
+}
 
 // --- 매수/매도 컨트롤 ---
-const Order: React.FC = () => {
+const Order: React.FC<OrderProps> = ({ selectedPrice }) => {
   const [amount, setAmount] = useState<string>('');
   const [price, setPrice] = useState<string>('');
   const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
+
+  // selectedPrice가 변경되면 price 입력란에 반영
+  useEffect(() => {
+    if (selectedPrice !== null && selectedPrice !== undefined) {
+      setPrice(selectedPrice.toString());
+    }
+  }, [selectedPrice]);
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;

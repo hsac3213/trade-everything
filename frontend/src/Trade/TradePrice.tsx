@@ -8,7 +8,7 @@ interface Trade {
   price: number;
   quantity: number;
   time: string;
-  isBuyerMaker: boolean; // true: 매도 체결, false: 매수 체결
+  isBuyerMaker: boolean; // true: 매도 체결 (빨강), false: 매수 체결 (초록)
 }
 
 interface TradePriceProps {
@@ -55,13 +55,21 @@ const TradePrice: React.FC<TradePriceProps> = ({
     if (tradeData && tradeData.price) {
       setIsConnected(true);
       
+      // isBuyerMaker가 있으면 사용, 없으면 side로 판단
+      let isBuyerMaker = false;
+      if (tradeData.isBuyerMaker !== undefined) {
+        isBuyerMaker = tradeData.isBuyerMaker;
+      } else if (tradeData.side) {
+        isBuyerMaker = tradeData.side === 'sell';
+      }
+      
       const newTrade: Trade = {
         price: Number(tradeData.price),
-        quantity: Number(tradeData.volume || 0),
+        quantity: Number(tradeData.quantity || tradeData.volume || 0),
         time: tradeData.timestamp 
           ? new Date(tradeData.timestamp).toLocaleTimeString('en-US', { hour12: false })
           : new Date().toLocaleTimeString('en-US', { hour12: false }),
-        isBuyerMaker: tradeData.side === 'sell', // sell이면 매도 체결 (빨강)
+        isBuyerMaker: isBuyerMaker, // true: 매도 체결 (빨강), false: 매수 체결 (초록)
       };
       
       // 새 체결을 맨 위에 추가하고 최대 30개까지만 유지

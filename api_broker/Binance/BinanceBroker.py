@@ -1,12 +1,15 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
 from .price import get_realtime_orderbook_price, get_realtime_trade_price
-from .constants import API_URL, WSS_URL
+from .constants import API_URL, WSS_URL, API_KEY, SEC_KEY
 from typing import List, Dict, Any, Callable, Awaitable
 import websockets
 import json
 import asyncio
 import requests
 from datetime import datetime, timedelta
+import time
+import hmac, hashlib
+from urllib.parse import urlencode
 
 # Endpoint 마다 rate limit 관리 코드 추가하기!!
 # HTTP 429 return code is used when breaking a request rate limit.
@@ -24,8 +27,69 @@ class BinanceBroker(BrokerInterface):
 
         self.ws_orderbook = None
 
+    # https://github.com/binance/binance-signature-examples/tree/master/python
+    def signing(self, input):
+        signature = hmac.new(SEC_KEY.encode("utf-8"), input.encode("utf-8"), hashlib.sha256)
+        signature = signature.hexdigest()
+        return signature
+
+    def get_assets(self) -> List[Dict[str, Any]]:
+        try:
+            headers = {
+                "X-MBX-APIKEY": API_KEY,
+            }
+
+            params = {
+                "recvWindow": "5000",
+                "timestamp": str(int(time.time()) * 1000)
+            }
+            query_string = urlencode(params)
+            signature = self.signing(query_string)
+
+            url = API_URL + f"/sapi/v3/asset/getUserAsset?{query_string}&signature={signature}"
+            resp = requests.post(url, headers=headers, data=params, timeout=10)
+            resp_json = resp.json()
+
+            assets = []
+            for asset in resp_json:
+                assets.append({
+                    "display_name": "Spot " + asset["asset"],
+                    "symbol": asset["asset"],
+                    "amount": asset["free"],
+                })
+
+            params = {
+                "recvWindow": "5000",
+                "timestamp": str(int(time.time()) * 1000)
+            }
+            query_string = urlencode(params)
+            signature = self.signing(query_string)
+
+            url = API_URL + f"/sapi/v1/simple-earn/account?{query_string}&signature={signature}"
+            resp = requests.get(url, headers=headers, timeout=10)
+            resp_json = resp.json()
+
+            assets.append({
+                "display_name": "Simple Earn USDT",
+                "symbol": "USDT",
+                "amount": resp_json["totalAmountInUSDT"],
+            })
+
+            return assets
+            
+        except requests.exceptions.RequestException as e:
+            print("[ get_assets ]")
+            print("requests.exceptions.RequestException:")
+            print(e)
+            return []
+        except Exception as e:
+            print("[ get_assets ]")
+            print(e)
+            import traceback
+            traceback.print_exc()
+            return []
+
     def get_symbols(self) -> List[Dict[str, Any]]:
-        """Binance 거래 가능한 심볼 목록 조회"""
         try:
             url = API_URL + "/api/v3/exchangeInfo"
             params = {

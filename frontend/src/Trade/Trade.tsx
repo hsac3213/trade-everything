@@ -10,9 +10,10 @@ import TradePrice from './TradePrice';
 interface ChartPlaceholderProps {
   broker: string;
   symbol: string;
+  selectedPrice: number | null;
 }
 
-const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol }) => {
+const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol, selectedPrice }) => {
   const [timeframe, setTimeframe] = useState<string>('1D');
   
   console.log(`📊 [Trade.tsx] ChartPlaceholder rendering with broker: ${broker}, symbol: ${symbol}`);
@@ -61,7 +62,7 @@ const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol }) =
       {/* 하단 영역: 거래 페어 선택 & Open Orders */}
       <div className="flex gap-4 p-4">
         {/* 좌측: 주문 */}
-        <Order />
+        <Order selectedPrice={selectedPrice} />
         
         {/* 우측: Open Orders */}
         <OpenOrder />
@@ -73,6 +74,7 @@ const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol }) =
 const Trade: React.FC = () => {
   const [exchange, setExchange] = useState<string>('Binance');
   const [symbol, setSymbol] = useState<string>('btcusdt');
+  const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
   
   // 거래소 변경 핸들러
   const handleExchangeChange = (newExchange: string) => {
@@ -117,7 +119,12 @@ const Trade: React.FC = () => {
           <option value="UPBit">UPBit</option>
         </select>
         
-        <OrderBook broker={exchange} symbol={symbol} key={`orderbook-${exchange}-${symbol}`} />
+        <OrderBook 
+          broker={exchange} 
+          symbol={symbol} 
+          key={`orderbook-${exchange}-${symbol}`}
+          onPriceClick={setSelectedPrice}
+        />
       </aside>
 
       {/* 중앙: 차트 */}
@@ -125,6 +132,7 @@ const Trade: React.FC = () => {
         <ChartPlaceholder 
           broker={exchange}
           symbol={symbol}
+          selectedPrice={selectedPrice}
           key={`chart-${exchange}-${symbol}`}
         />
       </main>

@@ -39,6 +39,22 @@ def get_brokers():
         "brokers": BrokerFactory.get_available_brokers()
     }
 
+@app.get("/assets/{broker_name}")
+def get_assets(broker_name: str):
+    try:
+        broker = BrokerFactory.create_broker(broker_name)
+        symbols = broker.get_assets()
+        return {
+            "message": "success",
+            "broker": broker_name,
+            "assets": symbols
+        }
+    except Exception as e:
+        return {
+            "message": "error",
+            "error": str(e)
+        }
+
 @app.get("/symbols/{broker_name}")
 def get_symbols(broker_name: str):
     """브로커의 거래 가능한 심볼 목록 조회"""

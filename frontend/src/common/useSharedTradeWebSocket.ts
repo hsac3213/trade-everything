@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { WS_URL } from '../common/constants';
+import { WS_URL } from './constants';
 
 interface TradeData {
   price: string;
@@ -20,14 +20,6 @@ const sharedState = {
 
 /**
  * 여러 컴포넌트에서 하나의 WebSocket 연결을 공유하는 Hook
- * 
- * @param broker - 브로커 이름 (예: 'Binance')
- * @param symbol - 심볼 (예: 'btcusdt')
- * @returns 실시간 체결 데이터
- * 
- * @example
- * const tradeData = useSharedTradeWebSocket('Binance', 'btcusdt');
- * console.log(tradeData?.price); // 현재 체결가
  */
 export const useSharedTradeWebSocket = (broker: string, symbol: string): TradeData | null => {
   const [tradeData, setTradeData] = useState<TradeData | null>(sharedState.data);

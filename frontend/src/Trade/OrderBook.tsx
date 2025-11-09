@@ -13,6 +13,7 @@ interface Order {
 interface OrderBookProps {
   broker?: string;
   symbol?: string;
+  onPriceClick?: (price: number) => void;
 }
 
 // 호가창 행 컴포넌트 Props
@@ -22,10 +23,11 @@ interface OrderBookRowProps {
   type: 'ask' | 'bid';
   displayCount: number;
   maxTotal: number;  // Total 값의 최대값 (bar 너비 계산용)
+  onPriceClick?: (price: number) => void;
 }
 
 // 호가창 행 컴포넌트
-const OrderBookRow: React.FC<OrderBookRowProps> = ({ price, quantity, type, displayCount, maxTotal }) => {
+const OrderBookRow: React.FC<OrderBookRowProps> = ({ price, quantity, type, displayCount, maxTotal, onPriceClick }) => {
   const isAsk = type === 'ask';
   const textColor = isAsk ? 'text-red-500' : 'text-green-500';
   const barColor = isAsk ? 'bg-red-900/50' : 'bg-green-900/50';
@@ -57,7 +59,10 @@ const OrderBookRow: React.FC<OrderBookRowProps> = ({ price, quantity, type, disp
                        displayCount <= 15 ? 'text-[11px]' : 'text-[10px]';
 
   return (
-    <div className={`relative grid grid-cols-3 gap-2 items-center ${paddingClass} ${textSizeClass} rounded-sm overflow-hidden hover:bg-gray-700 transition-colors`}>
+    <div 
+      className={`relative grid grid-cols-3 gap-2 items-center ${paddingClass} ${textSizeClass} rounded-sm overflow-hidden hover:bg-gray-700 transition-colors cursor-pointer`}
+      onClick={() => onPriceClick?.(price)}
+    >
       {/* 시각적 깊이 바 */}
       <div 
         className={`absolute top-0 bottom-0 right-0 ${barColor} z-0`}
@@ -79,7 +84,8 @@ const OrderBookRow: React.FC<OrderBookRowProps> = ({ price, quantity, type, disp
 // --- 호가창 컴포넌트 ---
 const OrderBook: React.FC<OrderBookProps> = ({ 
   broker = 'Binance', 
-  symbol = 'btcusdt' 
+  symbol = 'btcusdt',
+  onPriceClick
 }) => {
   // 호가 표시 개수 상태 (1~20개)
   const [displayCount, setDisplayCount] = useState<number>(20);
@@ -205,6 +211,7 @@ const OrderBook: React.FC<OrderBookProps> = ({
                 type="ask"
                 displayCount={displayCount}
                 maxTotal={avgTopTotal}
+                onPriceClick={onPriceClick}
               />
             );
           })}
@@ -241,6 +248,7 @@ const OrderBook: React.FC<OrderBookProps> = ({
                 type="bid"
                 displayCount={displayCount}
                 maxTotal={avgTopTotal}
+                onPriceClick={onPriceClick}
               />
             );
           })}

@@ -20,10 +20,6 @@ const Assets: React.FC = () => {
               <div className="text-gray-400">Earning</div>
               <div className="text-lg font-semibold">$0.00</div>
             </div>
-            <div>
-              <div className="text-gray-400">Funding</div>
-              <div className="text-lg font-semibold">$0.00</div>
-            </div>
           </div>
         </div>
         
@@ -47,19 +43,6 @@ const Assets: React.FC = () => {
               </tr>
             </tbody>
           </table>
-        </div>
-        
-        {/* 액션 버튼 */}
-        <div className="flex gap-4">
-          <button className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md transition-colors font-medium">
-            Deposit
-          </button>
-          <button className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-md transition-colors font-medium">
-            Withdraw
-          </button>
-          <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md transition-colors font-medium">
-            Transfer
-          </button>
         </div>
       </div>
     </div>
