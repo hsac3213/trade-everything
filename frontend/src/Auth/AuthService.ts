@@ -2,8 +2,7 @@
  * 보안 강화 인증 서비스
  * JWT + 메모리 기반 토큰 관리 + 자동 갱신 + Passkey 지원
  */
-
-const API_BASE = 'http://localhost:8001';
+import { API_URL } from '../common/constants'
 
 export interface TokenResponse {
   access_token: string;
@@ -59,7 +58,7 @@ export class SecureAuthService {
    */
   static async logout(): Promise<void> {
     try {
-      await fetch(`${API_BASE}/auth/logout`, {
+      await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         credentials: 'include'
@@ -76,7 +75,7 @@ export class SecureAuthService {
    */
   static async logoutAllDevices(): Promise<void> {
     try {
-      await fetch(`${API_BASE}/auth/logout-all`, {
+      await fetch(`${API_URL}/auth/logout-all`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         credentials: 'include'
@@ -97,7 +96,7 @@ export class SecureAuthService {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/auth/refresh`, {
+      const response = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -124,7 +123,7 @@ export class SecureAuthService {
    * 현재 사용자 정보 조회
    */
   static async getMe(): Promise<UserInfo> {
-    const response = await fetch(`${API_BASE}/auth/me`, {
+    const response = await fetch(`${API_URL}/auth/me`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
       credentials: 'include'
@@ -141,7 +140,7 @@ export class SecureAuthService {
    * 활성 세션 목록 조회
    */
   static async getActiveSessions(): Promise<SessionInfo[]> {
-    const response = await fetch(`${API_BASE}/auth/sessions`, {
+    const response = await fetch(`${API_URL}/auth/sessions`, {
       method: 'GET',
       headers: this.getAuthHeaders(),
       credentials: 'include'

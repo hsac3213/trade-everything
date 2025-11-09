@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { WS_URL } from '../common/constants';
 
 interface TradeData {
   price: string;
@@ -50,7 +51,7 @@ export const useSharedTradeWebSocket = (broker: string, symbol: string): TradeDa
 
       // 새 연결 생성
       sharedState.subscription = { broker, symbol };
-      const ws = new WebSocket(`ws://localhost:8001/ws/trade/${broker}/${symbol}`);
+      const ws = new WebSocket(`${WS_URL}/ws/trade/${broker}/${symbol}`);
       
       ws.onopen = () => {
         console.log('✅ Shared WebSocket connected:', broker, symbol);

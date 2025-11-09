@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SecureAuthService from './AuthService';
+import { API_URL } from '../common/constants';
 
 interface Passkey {
   credential_id: string;
@@ -34,7 +35,7 @@ const PasskeyManager: React.FC = () => {
     setError('');
     
     try {
-      const response = await fetch('http://localhost:8001/auth/passkey/list', {
+      const response = await fetch(`${API_URL}/auth/passkey/list`, {
         headers: SecureAuthService.getAuthHeaders(),
       });
 
@@ -62,7 +63,7 @@ const PasskeyManager: React.FC = () => {
       }
 
       // 1. 등록 시작
-      const beginResponse = await fetch('http://localhost:8001/auth/passkey/add/begin', {
+      const beginResponse = await fetch(`${API_URL}/auth/passkey/add/begin`, {
         method: 'POST',
         headers: SecureAuthService.getAuthHeaders(),
         body: JSON.stringify({ username }),
@@ -80,7 +81,7 @@ const PasskeyManager: React.FC = () => {
       const attResp = await startRegistration(options);
 
       // 3. 등록 완료
-      const completeResponse = await fetch('http://localhost:8001/auth/passkey/add/complete', {
+      const completeResponse = await fetch(`${API_URL}/auth/passkey/add/complete`, {
         method: 'POST',
         headers: SecureAuthService.getAuthHeaders(),
         body: JSON.stringify({
@@ -114,7 +115,7 @@ const PasskeyManager: React.FC = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:8001/auth/passkey/remove/${encodeURIComponent(credentialId)}`,
+        `${API_URL}/auth/passkey/remove/${encodeURIComponent(credentialId)}`,
         {
           method: 'DELETE',
           headers: SecureAuthService.getAuthHeaders(),

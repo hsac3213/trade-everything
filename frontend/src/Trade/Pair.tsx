@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SecureAuthService } from '../Auth/AuthService';
+import { API_URL } from '../common/constants';
 
 interface TradingPair {
   symbol: string;
@@ -45,8 +46,8 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
       }
 
       const url = broker 
-        ? `http://localhost:8001/api/favorites/list?broker=${encodeURIComponent(broker)}`
-        : 'http://localhost:8001/api/favorites/list';
+        ? `${API_URL}/api/favorites/list?broker=${encodeURIComponent(broker)}`
+        : `${API_URL}/api/favorites/list`;
       
       const response = await fetch(url, {
         headers: {
@@ -118,7 +119,7 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
       if (isFavorite) {
         // 즐겨찾기 제거
         const response = await fetch(
-          `http://localhost:8001/api/favorites/remove?broker=${encodeURIComponent(broker)}&symbol=${encodeURIComponent(symbol)}`,
+          `${API_URL}/api/favorites/remove?broker=${encodeURIComponent(broker)}&symbol=${encodeURIComponent(symbol)}`,
           {
             method: 'DELETE',
             headers: {
@@ -140,7 +141,7 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
         }
       } else {
         // 즐겨찾기 추가
-        const response = await fetch('http://localhost:8001/api/favorites/add', {
+        const response = await fetch(`${API_URL}/api/favorites/add`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -182,7 +183,7 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
     setIsLoading(true);
     setAllSymbols([]); // 기존 목록 초기화
     try {
-      const url = `http://localhost:8001/symbols/${selectedBroker}`;
+      const url = `${API_URL}/symbols/${selectedBroker}`;
       const response = await fetch(url);
       const data = await response.json();
       

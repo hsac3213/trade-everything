@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSharedTradeWebSocket } from './SharedTradePriceWebsocket';
+import { WS_URL } from '../common/constants';
 
 // --- 타입 정의 ---
 
@@ -94,7 +95,7 @@ const OrderBook: React.FC<OrderBookProps> = ({
   // WebSocket 연결 (호가창 데이터용)
   useEffect(() => {
     let isMounted = true; // cleanup 플래그
-    const ws = new WebSocket(`ws://localhost:8001/ws/orderbook/${broker}/${symbol}`);
+    const ws = new WebSocket(`${WS_URL}/ws/orderbook/${broker}/${symbol}`);
     wsRef.current = ws;
 
     ws.onopen = () => {

@@ -2,9 +2,7 @@ import {
   startRegistration,
   startAuthentication,
 } from '@simplewebauthn/browser';
-
-// Python FastAPI 서버 주소
-const API_URL = 'http://localhost:8001';
+import { API_URL } from '../common/constants';
 
 /**
  * Passkey 등록/로그인 결과

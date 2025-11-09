@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import type { CandlestickData, IChartApi } from 'lightweight-charts';
+import { API_URL } from '../common/constants';
 
-const CANDLE_API_URL = "http://localhost:8001/candle";
+const CANDLE_API_URL = `${API_URL}/candle`;
 
 // 볼륨 정보를 포함한 캔들 데이터 타입
 interface CandleWithVolume extends CandlestickData {
