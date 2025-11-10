@@ -2,7 +2,7 @@ import {
   startRegistration,
   startAuthentication,
 } from '@simplewebauthn/browser';
-import { API_URL } from '../common/constants'
+import { API_URL } from '../Common/Constants'
 
 // ==================
 // 1. 키 등록 (Registration)

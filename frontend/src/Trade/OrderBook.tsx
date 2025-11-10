@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSharedTradeWebSocket } from './SharedTradePriceWebsocket';
-import { WS_URL } from '../common/constants';
+import { WS_URL } from '../Common/Constants';
 
 // --- 타입 정의 ---
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SecureAuthService from './AuthService';
-import { API_URL } from '../common/constants';
+import { API_URL } from '../Common/Constants';
 
 interface Passkey {
   credential_id: string;

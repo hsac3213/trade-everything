@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import type { CandlestickData, IChartApi, Time } from 'lightweight-charts';
-import { API_URL } from '../common/constants';
-import { useSharedTradeWebSocket } from '../common/useSharedTradeWebSocket';
+import { API_URL } from '../Common/Constants';
+import { useSharedTradeWebSocket } from '../Common/useSharedTradeWebSocket';
 
 const CANDLE_API_URL = `${API_URL}/candle`;
 

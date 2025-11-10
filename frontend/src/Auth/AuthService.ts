@@ -2,7 +2,7 @@
  * 보안 강화 인증 서비스
  * JWT + 메모리 기반 토큰 관리 + 자동 갱신 + Passkey 지원
  */
-import { API_URL } from '../common/constants'
+import { API_URL } from '../Common/Constants'
 
 export interface TokenResponse {
   access_token: string;

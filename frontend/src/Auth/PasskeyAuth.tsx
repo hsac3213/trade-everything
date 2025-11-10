@@ -2,7 +2,7 @@ import {
   startRegistration,
   startAuthentication,
 } from '@simplewebauthn/browser';
-import { API_URL } from '../common/constants';
+import { API_URL } from '../Common/Constants';
 
 /**
  * Passkey 등록/로그인 결과

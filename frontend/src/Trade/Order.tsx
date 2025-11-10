@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { showToast } from '../Common/Toast';
 
 interface OrderProps {
   selectedPrice?: number | null;
@@ -38,6 +39,10 @@ const Order: React.FC<OrderProps> = ({ selectedPrice }) => {
     if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
       e.preventDefault();
     }
+  };
+
+  const toastTest = () => {
+    showToast.success('주문이 성공적으로 완료되었습니다!');
   };
 
   return (
@@ -109,7 +114,9 @@ const Order: React.FC<OrderProps> = ({ selectedPrice }) => {
         </div>
 
         <div className="flex gap-4">
-          <button className="w-full py-3 rounded-md bg-green-600 hover:bg-green-700 text-white font-bold text-lg transition-colors duration-200">
+          <button
+            onClick={ toastTest }
+            className="w-full py-3 rounded-md bg-green-600 hover:bg-green-700 text-white font-bold text-lg transition-colors duration-200">
             Buy
           </button>
           <button className="w-full py-3 rounded-md bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-colors duration-200">

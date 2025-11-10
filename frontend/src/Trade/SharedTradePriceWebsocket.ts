@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { WS_URL } from '../common/constants';
+import { WS_URL } from '../Common/Constants';
 
 interface TradeData {
   price: string;
