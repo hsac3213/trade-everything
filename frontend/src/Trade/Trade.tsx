@@ -94,8 +94,6 @@ const Trade: React.FC = () => {
   const getDefaultSymbol = (exchangeName: string): string => {
     switch (exchangeName) {
       case 'Binance':
-      case 'UPBit':
-        return 'btcusdt';
       case 'KIS':
         return '005930';
       default:
@@ -116,7 +114,6 @@ const Trade: React.FC = () => {
         >
           <option value="Binance">Binance</option>
           <option value="KIS">KIS</option>
-          <option value="UPBit">UPBit</option>
         </select>
         
         <OrderBook 
