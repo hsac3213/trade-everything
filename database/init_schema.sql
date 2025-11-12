@@ -1,4 +1,4 @@
--- Passkey 기반 인증 시스템을 위한 데이터베이스 스키마
+-- 데이터베이스 스키마 생성
 
 -- ==========================================
 -- 1. 사용자 테이블
@@ -39,3 +39,14 @@ CREATE TABLE IF NOT EXISTS user_settings (
 
 CREATE INDEX idx_user_settings_user_id ON user_settings(user_id);
 CREATE INDEX idx_user_settings_type ON user_settings(user_id, setting_type);
+
+-- 토큰 저장 데이터베이스
+CREATE TABLE IF NOT EXISTS user_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    tokens_data JSONB NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used TIMESTAMP
+);
+
+CREATE INDEX idx_user_tokens_user_id ON user_tokens(user_id);

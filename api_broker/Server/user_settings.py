@@ -1,4 +1,4 @@
-from .db_manager import *
+from ..Common.DBManager import *
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import json

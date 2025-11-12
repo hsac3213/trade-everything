@@ -1,4 +1,5 @@
 from ..BrokerCommon.BrokerFactory import BrokerFactory
+from ..Common.TokenManager import TokenManager
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,6 +39,11 @@ def get_brokers():
         "message": "success",
         "brokers": BrokerFactory.get_available_brokers()
     }
+
+@app.get("/test")
+def test():
+    token_manager = TokenManager()
+    return token_manager.get_tokens("Binance")
 
 @app.get("/assets/{broker_name}")
 def get_assets(broker_name: str):
