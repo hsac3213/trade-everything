@@ -43,6 +43,8 @@ export class SecureAuthService {
     // 토큰 저장 및 자동 갱신 시작
     this.setTokens(result.tokens.access_token, result.tokens.refresh_token);
     this.startAutoRefresh(result.tokens.expires_in);
+
+    console.log("JWT : ", result.tokens.access_token);
   }
 
   /**
@@ -111,6 +113,7 @@ export class SecureAuthService {
       this.setTokens(data.access_token, data.refresh_token);
 
       console.log('✅ Token refreshed successfully');
+      console.log(data.access_token);
     } catch (error) {
       console.error('❌ Token refresh error:', error);
       // 갱신 실패 시 로그아웃

@@ -6,5 +6,6 @@ Copyright (с) 2025 TradingView, Inc. https://www.tradingview.com/
 
 # References
 한국투자증권 OpenAPI 공식 샘플 코드<br>
-https://github.com/koreainvestment/open-trading-api
-
+https://github.com/koreainvestment/open-trading-api<br>
+웹소켓 request security 코드<br>
+https://developers.binance.com/docs/binance-spot-api-docs/websocket-api/request-security<br>

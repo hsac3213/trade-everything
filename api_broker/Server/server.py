@@ -1,7 +1,8 @@
 from ..BrokerCommon.BrokerFactory import BrokerFactory
 from ..Common.TokenManager import TokenManager
+from .auth_dependency import get_current_user, get_user_from_token
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
@@ -41,9 +42,67 @@ def get_brokers():
     }
 
 @app.get("/test")
-def test():
+async def test(current_user: dict = Depends(get_current_user)):
     token_manager = TokenManager()
-    return token_manager.get_tokens("Binance")
+    return {
+        "user": current_user.get("email"),
+        "tokens": token_manager.get_tokens(current_user["user_id"], "Binance")
+    }
+
+@app.websocket("/ws/userdata/{broker_name}")
+async def websocket_userdata(
+    ws: WebSocket,
+    broker_name: str,
+):
+    await ws.accept()
+    
+    broker = None
+    subscription_task = None
+    is_connected = True
+    
+    try:
+        auth_message = await ws.receive_json()
+        token = auth_message.get("token")
+        user = await get_user_from_token(token)
+        
+        broker = BrokerFactory.create_broker(broker_name)
+        
+        async def send_callback(data: dict):
+            print("[ zzz ]")
+            print(data)
+            nonlocal is_connected
+            if not is_connected:
+                raise asyncio.CancelledError("Client disconnected")
+            try:
+                await ws.send_json(data)
+            except WebSocketDisconnect:
+                is_connected = False
+                raise asyncio.CancelledError("Client disconnected")
+            except Exception as e:
+                is_connected = False
+                raise asyncio.CancelledError(f"Send error: {e}")
+        
+        subscription_task = asyncio.create_task(
+            broker.subscribe_userdata_async(send_callback)
+        )
+        await subscription_task
+    
+    except WebSocketDisconnect:
+        is_connected = False
+    except asyncio.CancelledError:
+        is_connected = False
+    except Exception as e:
+        is_connected = False
+        print(f"Userdata WebSocket error: {e}")
+    finally:
+        is_connected = False
+        if subscription_task and not subscription_task.done():
+            subscription_task.cancel()
+            try:
+                await subscription_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        print(f"Userdata closed: {broker_name}")
 
 @app.get("/assets/{broker_name}")
 def get_assets(broker_name: str):
@@ -98,7 +157,6 @@ def get_candle(broker_name: str, symbol: str, interval: str, start_time: str):
 
 @app.websocket("/ws/orderbook/{broker_name}/{symbol}")
 async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
-    """호가 전용 WebSocket"""
     await ws.accept()
     print(f"✅ Orderbook connected: {broker_name}/{symbol}")
     

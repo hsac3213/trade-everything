@@ -1,4 +1,6 @@
 import React from 'react';
+import { SecureAuthService } from '../Auth/AuthService';
+import { API_URL } from '../Common/Constants';
 
 // --- Open Orders 컴포넌트 ---
 const OpenOrder: React.FC = () => {
@@ -7,6 +9,22 @@ const OpenOrder: React.FC = () => {
     { id: '2', pair: 'ETH/USDT', side: 'sell', price: '2,300.00', amount: '2.5', filled: '30%', status: 'partial' },
     { id: '3', pair: 'SOL/USDT', side: 'buy', price: '95.00', amount: '10', filled: '0%', status: 'open' },
   ];
+
+  const test = async () => {
+    const token = SecureAuthService.getAccessToken();
+    const ws = new WebSocket('ws://192.168.0.21:8001/ws/userdata/Binance');
+
+    ws.onopen = () => {
+        ws.send(JSON.stringify({ token: token }));
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.status === 'authenticated') {
+            console.log('Authenticated!', data.user);
+        }
+    };
+  }
 
   return (
     <div className="flex-1 bg-gray-900 rounded-lg p-3 flex flex-col">
@@ -17,6 +35,7 @@ const OpenOrder: React.FC = () => {
         <button 
           className="px-4 py-1.5 bg-red-600 hover:bg-red-700 rounded text-sm font-medium transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
           disabled={openOrders.length === 0}
+          onClick={ test }
         >
           Cancel All
         </button>
@@ -24,12 +43,12 @@ const OpenOrder: React.FC = () => {
       
       {/* 주문 목록 헤더 */}
       <div className="grid grid-cols-6 gap-2 mb-1 text-xs text-gray-400 font-medium">
-        <span>페어</span>
-        <span>구분</span>
-        <span>가격</span>
-        <span>수량</span>
-        <span>체결률</span>
-        <span className="text-center">취소</span>
+        <span>Pair</span>
+        <span>Type</span>
+        <span>Price</span>
+        <span>Amount</span>
+        <span>Filled</span>
+        <span className="text-center"></span>
       </div>
       
       {/* 주문 목록 */}

@@ -107,3 +107,33 @@ async def get_current_user_optional(
         return await get_current_user(request, credentials)
     except HTTPException:
         return None
+
+async def get_user_from_token(token) -> Dict[str, Any]:    
+    # 1️⃣ JWT 검증 + 블랙리스트 확인
+    payload = session_manager.verify_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    # 2️⃣ Redis 세션 확인
+    session_data = session_manager.get_session(token)
+    if not session_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    # 4️⃣ 세션 갱신 (슬라이딩 윈도우)
+    session_manager.refresh_session(token)
+    
+    return {
+        "user_id": payload.get("user_id"),
+        "email": payload.get("email"),
+        "jti": payload.get("jti"),
+        "session": session_data,
+        "token": token  # 로그아웃 시 필요
+    }

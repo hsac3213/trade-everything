@@ -20,7 +20,7 @@ class TokenManager:
         try:
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    SELECT FROM user_tokens
+                    SELECT * FROM user_tokens
                     WHERE user_id = %s
                 """, (user_id,))
                 
@@ -36,9 +36,11 @@ class TokenManager:
                     """,
                     (user_id,)
                 )
+                conn.commit()
                 
-                return row["user_tokens"][broker]
+                return row["tokens_data"][broker]
         except Exception as e:
+            conn.rollback()
             print("[ TokenManager ]")
             print("Exception:")
             print(e)

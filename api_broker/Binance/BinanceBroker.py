@@ -1,6 +1,7 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
 from .price import get_realtime_orderbook_price, get_realtime_trade_price
-from .constants import API_URL, WSS_URL, API_KEY, SEC_KEY
+from .constants import API_URL, WSS_URL, WS_URL, BINANCE_PRIVATE_KEY_PATH, BINANCE_ED25519_API_KEY, API_KEY, SEC_KEY
+
 from typing import List, Dict, Any, Callable, Awaitable
 import websockets
 import json
@@ -10,6 +11,10 @@ from datetime import datetime, timedelta
 import time
 import hmac, hashlib
 from urllib.parse import urlencode
+
+import base64
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+import uuid
 
 # Endpoint 마다 rate limit 관리 코드 추가하기!!
 # HTTP 429 return code is used when breaking a request rate limit.
@@ -32,6 +37,79 @@ class BinanceBroker(BrokerInterface):
         signature = hmac.new(SEC_KEY.encode("utf-8"), input.encode("utf-8"), hashlib.sha256)
         signature = signature.hexdigest()
         return signature
+    
+    def get_signed_payload(self, method, params):
+        private_key = ""
+        with open(BINANCE_PRIVATE_KEY_PATH, "rb") as f:
+            private_key = load_pem_private_key(data=f.read(), password=None)
+
+        timestamp = int(time.time() * 1000)
+        params["timestamp"] = timestamp
+
+        payload_for_sign = "&".join([f"{param}={value}" for param, value in sorted(params.items())])
+
+        signature = base64.b64encode(private_key.sign(payload_for_sign.encode("ASCII")))
+        params["signature"] = signature.decode("ASCII")
+
+        payload = {
+            "id": str(uuid.uuid4()),
+            "method":method,
+            "params": params
+        }
+
+        return payload
+    
+    async def subscribe_userdata_async(self, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+        try:
+            url = WS_URL
+            async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
+                params = {
+                    "apiKey": BINANCE_ED25519_API_KEY,
+                }
+                payload = self.get_signed_payload("session.logon", params)
+                await ws.send(json.dumps(payload))
+                resp = json.loads(await ws.recv())
+
+                print("[ session.logon ]")
+                print(resp)
+
+                payload = {
+                    "id": str(uuid.uuid4()),
+                    "method": "userDataStream.subscribe",
+                }
+                await ws.send(json.dumps(payload))
+                resp = json.loads(await ws.recv())
+
+                print("[ userDataStream.subscribe ]")
+                print(resp)
+
+                while True:
+                    try:
+                        resp_json = json.loads(await ws.recv())
+                        await callback(resp_json)
+                        
+                    except json.JSONDecodeError as e:
+                        print(f"JSON decode error: {e}")
+                    except asyncio.CancelledError:
+                        print("asyncio.CancelledError")
+                        # 취소 신호 - 즉시 종료
+                        raise
+                    except Exception:
+                        # 콜백 오류 (연결 끊김 등) - 조용히 종료
+                        print(f"Exception")
+                        raise asyncio.CancelledError("Callback error")
+        
+        except asyncio.CancelledError:
+            # 정상적인 취소 - 로그 없음
+            pass
+        except websockets.exceptions.ConnectionClosed:
+            # Binance 연결 종료 - 로그 없음
+            pass
+        except Exception as e:
+            print(f"Binance WebSocket error: {e}")
+            import traceback
+            traceback.print_exc()
+            print(traceback.format_exc())
 
     def get_assets(self) -> List[Dict[str, Any]]:
         try:

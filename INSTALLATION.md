@@ -28,7 +28,7 @@ sudo apt install postgresql postgresql-contrib
 # 사용자 및 데이터베이스 생성
 sudo -u postgres psql -f ./database/init_db.sql
 # 데이터베이스 스키마 생성
-sudo -u postgres psql -f ./database/init_schema.sql
+sudo -u postgres psql -d tedb -f ./database/init_schema.sql
 # 데이터베이스 접속을 위한 인증서 생성
 cd database
 sh ./create_cert.sh
