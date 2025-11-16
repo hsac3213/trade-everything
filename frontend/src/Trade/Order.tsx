@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { showToast } from '../Common/Toast';
+import { SecureAuthService } from '../Auth/AuthService';
+import { API_URL } from '../Common/Constants';
 
 interface OrderProps {
+  broker: string;
+  symbol: string;
   selectedPrice?: number | null;
+  onOrderSuccess?: () => void;
 }
 
 // --- 매수/매도 컨트롤 ---
-const Order: React.FC<OrderProps> = ({ selectedPrice }) => {
+const Order: React.FC<OrderProps> = ({ broker, symbol, selectedPrice, onOrderSuccess }) => {
   const [amount, setAmount] = useState<string>('');
   const [price, setPrice] = useState<string>('');
   const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // selectedPrice가 변경되면 price 입력란에 반영
   useEffect(() => {
@@ -17,6 +23,63 @@ const Order: React.FC<OrderProps> = ({ selectedPrice }) => {
       setPrice(selectedPrice.toString());
     }
   }, [selectedPrice]);
+
+  // 주문 제출
+  const handleOrder = async (side: 'BUY' | 'SELL') => {
+    // 입력 검증
+    if (!amount || parseFloat(amount) <= 0) {
+      showToast.warning('Please enter a valid amount');
+      return;
+    }
+
+    if (orderType === 'limit' && (!price || parseFloat(price) <= 0)) {
+      showToast.warning('Please enter a valid price');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const token = SecureAuthService.getAccessToken();
+      const orderData = {
+        symbol: symbol.toLowerCase(),
+        side: side,
+        quantity: parseFloat(amount),
+        price: parseFloat(price),
+      };
+
+      const response = await fetch(`${API_URL}/place_order/${broker}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      const data = await response.json();
+
+      if (data.message === 'success') {
+        showToast.success(`${side} order placed successfully`);
+        // 주문 성공 후 입력 필드 초기화
+        setAmount('');
+        if (orderType === 'market') {
+          setPrice('');
+        }
+        // OpenOrder 목록 갱신
+        if (onOrderSuccess) {
+          onOrderSuccess();
+        }
+      } else {
+        showToast.error(`Order failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error placing order:', error);
+      showToast.error('Failed to place order');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -39,10 +102,6 @@ const Order: React.FC<OrderProps> = ({ selectedPrice }) => {
     if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
       e.preventDefault();
     }
-  };
-
-  const toastTest = () => {
-    showToast.success('주문이 성공적으로 완료되었습니다!');
   };
 
   return (
@@ -115,12 +174,16 @@ const Order: React.FC<OrderProps> = ({ selectedPrice }) => {
 
         <div className="flex gap-4">
           <button
-            onClick={ toastTest }
-            className="w-full py-3 rounded-md bg-green-600 hover:bg-green-700 text-white font-bold text-lg transition-colors duration-200">
-            Buy
+            onClick={() => handleOrder('BUY')}
+            disabled={isSubmitting}
+            className="w-full py-3 rounded-md bg-green-600 hover:bg-green-700 text-white font-bold text-lg transition-colors duration-200 disabled:bg-gray-600 disabled:cursor-not-allowed">
+            {isSubmitting ? 'Processing...' : 'Buy'}
           </button>
-          <button className="w-full py-3 rounded-md bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-colors duration-200">
-            Sell
+          <button
+            onClick={() => handleOrder('SELL')}
+            disabled={isSubmitting}
+            className="w-full py-3 rounded-md bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-colors duration-200 disabled:bg-gray-600 disabled:cursor-not-allowed">
+            {isSubmitting ? 'Processing...' : 'Sell'}
           </button>
         </div>
       </div>

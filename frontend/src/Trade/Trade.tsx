@@ -15,6 +15,7 @@ interface ChartPlaceholderProps {
 
 const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol, selectedPrice }) => {
   const [timeframe, setTimeframe] = useState<string>('1D');
+  const [refreshOpenOrders, setRefreshOpenOrders] = useState<(() => void) | null>(null);
   
   console.log(`📊 [Trade.tsx] ChartPlaceholder rendering with broker: ${broker}, symbol: ${symbol}`);
   
@@ -62,10 +63,22 @@ const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol, sel
       {/* 하단 영역: 거래 페어 선택 & Open Orders */}
       <div className="flex gap-4 p-4">
         {/* 좌측: 주문 */}
-        <Order selectedPrice={selectedPrice} />
+        <Order 
+          broker={broker} 
+          symbol={symbol} 
+          selectedPrice={selectedPrice}
+          onOrderSuccess={() => {
+            if (refreshOpenOrders) {
+              refreshOpenOrders();
+            }
+          }}
+        />
         
         {/* 우측: Open Orders */}
-        <OpenOrder />
+        <OpenOrder 
+          broker={broker}
+          onRefreshRequest={(refreshFn) => setRefreshOpenOrders(() => refreshFn)}
+        />
       </div>
     </div>
   );

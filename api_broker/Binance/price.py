@@ -1,4 +1,4 @@
-from .constants import WSS_URL, API_KEY, SEC_KEY, CRYPTO_PAIR_WHITELIST
+from .common import WSS_URL, CRYPTO_PAIR_WHITELIST
 import websockets
 import asyncio
 import json

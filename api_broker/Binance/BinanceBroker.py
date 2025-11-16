@@ -1,6 +1,8 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
 from .price import get_realtime_orderbook_price, get_realtime_trade_price
-from .constants import API_URL, WSS_URL, WS_URL, BINANCE_PRIVATE_KEY_PATH, BINANCE_ED25519_API_KEY, API_KEY, SEC_KEY
+from .common import API_URL, WSS_URL, WS_URL, BINANCE_ED25519_API_KEY
+from .common import get_signed_payload_ws, get_signed_payload_post, signing
+from .order import place_order
 
 from typing import List, Dict, Any, Callable, Awaitable
 import websockets
@@ -9,12 +11,11 @@ import asyncio
 import requests
 from datetime import datetime, timedelta
 import time
-import hmac, hashlib
 from urllib.parse import urlencode
-
-import base64
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
 import uuid
+
+from pprint import pprint
+
 
 # Endpoint 마다 rate limit 관리 코드 추가하기!!
 # HTTP 429 return code is used when breaking a request rate limit.
@@ -31,33 +32,119 @@ class BinanceBroker(BrokerInterface):
         self.orderbook_callback = None
 
         self.ws_orderbook = None
-
-    # https://github.com/binance/binance-signature-examples/tree/master/python
-    def signing(self, input):
-        signature = hmac.new(SEC_KEY.encode("utf-8"), input.encode("utf-8"), hashlib.sha256)
-        signature = signature.hexdigest()
-        return signature
     
-    def get_signed_payload(self, method, params):
-        private_key = ""
-        with open(BINANCE_PRIVATE_KEY_PATH, "rb") as f:
-            private_key = load_pem_private_key(data=f.read(), password=None)
+    def place_order(self, order) -> List[Dict[str, Any]]:
+        """
+        Binance 주문 전송
+        """
+        return place_order(None, order)
 
-        timestamp = int(time.time() * 1000)
-        params["timestamp"] = timestamp
+    def get_orders(self) -> List[Dict[str, Any]]:
+        """
+        Binance 미체결 주문 목록
+        """
+        try:
+            headers = {
+                "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
+            }
 
-        payload_for_sign = "&".join([f"{param}={value}" for param, value in sorted(params.items())])
+            params = {}
+            payload = get_signed_payload_post(params)
 
-        signature = base64.b64encode(private_key.sign(payload_for_sign.encode("ASCII")))
-        params["signature"] = signature.decode("ASCII")
+            url = API_URL + f"/api/v3/openOrders"
+            resp = requests.get(url, headers=headers, params=payload, timeout=10)
+            resp_json = resp.json()
 
-        payload = {
-            "id": str(uuid.uuid4()),
-            "method":method,
-            "params": params
-        }
+            orders = []
+            for order in resp_json:
+                orders.append({
+                    "order_id": order["orderId"],
+                    # e.g. BTCUSDT
+                    "symbol": order["symbol"],
+                    # BUY or SELL
+                    "side": str(order["side"]).lower(),
+                    "price": order["price"],
+                    "amount": order["origQty"],
+                })
 
-        return payload
+            return orders
+            
+        except requests.exceptions.RequestException as e:
+            print("[ get_orders ]")
+            print("requests.exceptions.RequestException:")
+            print(e)
+            return []
+        except Exception as e:
+            print("[ get_orders ]")
+            print(e)
+            import traceback
+            traceback.print_exc()
+            return []
+
+    # https://developers.binance.com/docs/binance-spot-api-docs/user-data-stream#order-update
+    async def subscribe_execution_async(self, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+        """
+        Binance 실시간 체결 통보 구독
+        """
+        try:
+            url = WS_URL
+            async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
+                params = {
+                    "apiKey": BINANCE_ED25519_API_KEY,
+                }
+                payload = get_signed_payload_ws("session.logon", params)
+                await ws.send(json.dumps(payload))
+                resp = json.loads(await ws.recv())
+
+                print("[ session.logon ]")
+                print(resp)
+
+                payload = {
+                    "id": str(uuid.uuid4()),
+                    "method": "userDataStream.subscribe",
+                }
+                await ws.send(json.dumps(payload))
+                resp = json.loads(await ws.recv())
+
+                print("[ userDataStream.subscribe ]")
+                print(resp)
+
+                while True:
+                    try:
+                        resp_json = json.loads(await ws.recv())
+
+                        if "event" in resp_json:
+                            if resp_json["event"]["e"] == "executionReport" and resp_json["event"]["x"] == "TRADE":
+                                normalized_json = {
+                                    # Order ID
+                                    "order_id": resp_json["event"]["i"],
+                                    # Cumulative filled quantity
+                                    "quantity": resp_json["event"]["z"],
+                                }
+                                await callback(normalized_json)
+                        
+                    except json.JSONDecodeError as e:
+                        print(f"JSON decode error: {e}")
+                    except asyncio.CancelledError:
+                        print("asyncio.CancelledError")
+                        # 취소 신호 - 즉시 종료
+                        raise
+                    except Exception:
+                        # 콜백 오류 (연결 끊김 등) - 조용히 종료
+                        print(f"Exception")
+                        raise asyncio.CancelledError("Callback error")
+        
+        except asyncio.CancelledError:
+            # 정상적인 취소 - 로그 없음
+            pass
+        except websockets.exceptions.ConnectionClosed:
+            # Binance 연결 종료 - 로그 없음
+            pass
+        except Exception as e:
+            print(f"Binance WebSocket error: {e}")
+            import traceback
+            traceback.print_exc()
+            print(traceback.format_exc())
     
     async def subscribe_userdata_async(self, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         try:
@@ -66,7 +153,7 @@ class BinanceBroker(BrokerInterface):
                 params = {
                     "apiKey": BINANCE_ED25519_API_KEY,
                 }
-                payload = self.get_signed_payload("session.logon", params)
+                payload = get_signed_payload_ws("session.logon", params)
                 await ws.send(json.dumps(payload))
                 resp = json.loads(await ws.recv())
 
@@ -114,7 +201,7 @@ class BinanceBroker(BrokerInterface):
     def get_assets(self) -> List[Dict[str, Any]]:
         try:
             headers = {
-                "X-MBX-APIKEY": API_KEY,
+                "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
             }
 
             params = {
@@ -122,7 +209,7 @@ class BinanceBroker(BrokerInterface):
                 "timestamp": str(int(time.time()) * 1000)
             }
             query_string = urlencode(params)
-            signature = self.signing(query_string)
+            signature = signing(query_string)
 
             url = API_URL + f"/sapi/v3/asset/getUserAsset?{query_string}&signature={signature}"
             resp = requests.post(url, headers=headers, data=params, timeout=10)
@@ -141,7 +228,7 @@ class BinanceBroker(BrokerInterface):
                 "timestamp": str(int(time.time()) * 1000)
             }
             query_string = urlencode(params)
-            signature = self.signing(query_string)
+            signature = signing(query_string)
 
             url = API_URL + f"/sapi/v1/simple-earn/account?{query_string}&signature={signature}"
             resp = requests.get(url, headers=headers, timeout=10)
@@ -218,16 +305,6 @@ class BinanceBroker(BrokerInterface):
             'symbol': symbol,
             'price': 50000.0,
             'timestamp': '2025-01-01T00:00:00Z'
-        }
-    
-    def place_order(self, symbol: str, side: str, quantity: float, price: float = None) -> Dict[str, Any]:
-        return {
-            'order_id': '12345',
-            'symbol': symbol,
-            'side': side,
-            'quantity': quantity,
-            'price': price,
-            'status': 'pending'
         }
     
     def get_candle(self, symbol: str, interval: str, start_time: str):

@@ -49,6 +49,40 @@ async def test(current_user: dict = Depends(get_current_user)):
         "tokens": token_manager.get_tokens(current_user["user_id"], "Binance")
     }
 
+@app.post("/place_order/{broker_name}")
+async def place_order(broker_name: str, order: dict, current_user: dict = Depends(get_current_user)):
+    try:
+        print(order)
+
+        broker = BrokerFactory.create_broker(broker_name)
+        result = broker.place_order(order)
+        return {
+            "message": "success",
+            "broker": broker_name,
+            "result": result,
+        }
+    except Exception as e:
+        return {
+            "message": "error",
+            "error": str(e)
+        }
+
+@app.get("/orders/{broker_name}")
+async def get_orders(broker_name: str, current_user: dict = Depends(get_current_user)):
+    try:
+        broker = BrokerFactory.create_broker(broker_name)
+        orders = broker.get_orders()
+        return {
+            "message": "success",
+            "broker": broker_name,
+            "orders": orders,
+        }
+    except Exception as e:
+        return {
+            "message": "error",
+            "error": str(e)
+        }
+
 @app.websocket("/ws/userdata/{broker_name}")
 async def websocket_userdata(
     ws: WebSocket,

@@ -206,8 +206,8 @@ export const showToast = {
 export const ToastContainer = () => {
   return (
     <Toaster
-      position="bottom-right"
-      reverseOrder={false}
+      position="top-right"
+      reverseOrder={true}
       gutter={8}
       toastOptions={{
         duration: 3000,
