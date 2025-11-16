@@ -5,6 +5,7 @@ import Order from './Order';
 import Pair from './Pair';
 import OpenOrder from './OpenOrder';
 import TradePrice from './TradePrice';
+import { useBroker } from '../Context/BrokerContext';
 
 // 차트 플레이스홀더
 interface ChartPlaceholderProps {
@@ -85,16 +86,15 @@ const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol, sel
 };
 
 const Trade: React.FC = () => {
-  const [exchange, setExchange] = useState<string>('Binance');
-  const [symbol, setSymbol] = useState<string>('btcusdt');
+  const { broker, setBroker, symbol, setSymbol } = useBroker();
   const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
   
   // 거래소 변경 핸들러
   const handleExchangeChange = (newExchange: string) => {
-    console.log(`[Trade.tsx] Changing exchange from ${exchange} to ${newExchange}`);
+    console.log(`[Trade.tsx] Changing exchange from ${broker} to ${newExchange}`);
     
     // 1. 거래소 변경
-    setExchange(newExchange);
+    setBroker(newExchange);
     
     // 2. 심볼 초기화 (각 거래소의 기본 심볼로)
     const defaultSymbol = getDefaultSymbol(newExchange);
@@ -121,7 +121,7 @@ const Trade: React.FC = () => {
         {/* 거래소 선택 콤보박스 */}
         <select
           id="exchange-select"
-          value={exchange}
+          value={broker}
           onChange={(e) => handleExchangeChange(e.target.value)}
           className="bg-gray-800 text-white border border-gray-600 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
         >
@@ -130,9 +130,9 @@ const Trade: React.FC = () => {
         </select>
         
         <OrderBook 
-          broker={exchange} 
+          broker={broker} 
           symbol={symbol} 
-          key={`orderbook-${exchange}-${symbol}`}
+          key={`orderbook-${broker}-${symbol}`}
           onPriceClick={setSelectedPrice}
         />
       </aside>
@@ -140,17 +140,17 @@ const Trade: React.FC = () => {
       {/* 중앙: 차트 */}
       <main className="w-full lg:w-auto flex">
         <ChartPlaceholder 
-          broker={exchange}
+          broker={broker}
           symbol={symbol}
           selectedPrice={selectedPrice}
-          key={`chart-${exchange}-${symbol}`}
+          key={`chart-${broker}-${symbol}`}
         />
       </main>
 
       {/* 오른쪽: 거래 페어 선택 & 체결가격 */}
       <aside className="w-full lg:w-[300px] flex flex-col gap-2">
-        <Pair broker={exchange} key={`pair-${exchange}`} />
-        <TradePrice broker={exchange} symbol={symbol} key={`tradeprice-${exchange}-${symbol}`} />
+        <Pair broker={broker} key={`pair-${broker}`} />
+        <TradePrice broker={broker} symbol={symbol} key={`tradeprice-${broker}-${symbol}`} />
       </aside>
     </div>
   );

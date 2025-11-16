@@ -4,6 +4,8 @@ import Assets from './Assets';
 import Script from './Script';
 import License from './License';
 import { ToastContainer } from './Common/Toast';
+import { BrokerProvider } from './Context/BrokerContext';
+import { WebSocketProvider } from './Context/WebSocketContext';
 
 // --- 메뉴 헤더 컴포넌트 ---
 interface MenuHeaderProps {
@@ -83,15 +85,19 @@ const TradeMain: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 lg:p-8 font-sans">
-      <div className="flex flex-col gap-3 flex-1">
-        {/* 메인 레이아웃 - 메뉴별 컨텐츠 */}
-        {renderContent()}
-      </div>
-      
-      {/* 토스트 알림 컨테이너 */}
-      <ToastContainer />
-    </div>
+    <BrokerProvider>
+      <WebSocketProvider>
+        <div className="min-h-screen bg-gray-900 text-white p-4 lg:p-8 font-sans">
+          <div className="flex flex-col gap-3 flex-1">
+            {/* 메인 레이아웃 - 메뉴별 컨텐츠 */}
+            {renderContent()}
+          </div>
+          
+          {/* 토스트 알림 컨테이너 */}
+          <ToastContainer />
+        </div>
+      </WebSocketProvider>
+    </BrokerProvider>
   );
 }
 

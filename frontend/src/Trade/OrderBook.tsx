@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useSharedTradeWebSocket } from './SharedTradePriceWebsocket';
-import { WS_URL } from '../Common/Constants';
+import React, { useState, useEffect } from 'react';
+import { useWebSocket } from '../Context/WebSocketContext';
 
 // --- 타입 정의 ---
 
@@ -92,73 +91,49 @@ const OrderBook: React.FC<OrderBookProps> = ({
   const [asks, setAsks] = useState<Order[]>([]);
   const [bids, setBids] = useState<Order[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
   
-  // 공유 WebSocket Hook으로 실시간 체결가 구독
-  const tradeData = useSharedTradeWebSocket(broker, symbol);
-  const currentPrice = tradeData?.price ? Number(tradeData.price) : 0;
+  // WebSocket Context 사용
+  const { subscribeOrderbook, subscribeTradePrice } = useWebSocket();
 
   // WebSocket 연결 (호가창 데이터용)
   useEffect(() => {
-    let isMounted = true; // cleanup 플래그
-    const ws = new WebSocket(`${WS_URL}/ws/orderbook/${broker}/${symbol}`);
-    wsRef.current = ws;
+    console.log(`📊 Subscribing to orderbook: ${broker} ${symbol}`);
+    setIsConnected(true);
 
-    ws.onopen = () => {
-      if (isMounted) {
-        console.log(`✅ Connected to ${broker} ${symbol} orderbook`);
-        setIsConnected(true);
+    const handleOrderbookData = (data: any) => {
+      // 매수/매도 호가 업데이트
+      if (data.bids && data.asks) {
+        setBids(data.bids);
+        setAsks(data.asks);
       }
     };
 
-    ws.onmessage = (event) => {
-      if (!isMounted) return; // 언마운트된 경우 무시
-      
-      try {
-        const data = JSON.parse(event.data);
-        
-        // ping 메시지 무시
-        if (data.type === 'ping') {
-          return;
-        }
-        
-        // 매수/매도 호가 업데이트
-        if (data.bids && data.asks) {
-          setBids(data.bids);
-          setAsks(data.asks);
-        }
-        
-      } catch (error) {
-        console.error('Error parsing orderbook data:', error);
-      }
-    };
+    // WebSocket 구독 (unsubscribe 함수 반환)
+    const unsubscribe = subscribeOrderbook(broker, symbol, handleOrderbookData);
 
-    ws.onerror = (error) => {
-      if (isMounted) {
-        console.error('WebSocket error:', error);
-        setIsConnected(false);
-      }
-    };
-
-    ws.onclose = () => {
-      if (isMounted) {
-        console.log('🔌 WebSocket disconnected');
-        setIsConnected(false);
-      }
-    };
-
-    // Cleanup: 컴포넌트 언마운트 시 연결 해제
+    // Cleanup: 컴포넌트 언마운트 시 구독 해제
     return () => {
-      console.log('🧹 Cleaning up WebSocket connection');
-      isMounted = false; // 언마운트 표시
-      
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close();
-      }
-      
-      wsRef.current = null;
+      console.log(`🧹 Unsubscribing from orderbook: ${broker} ${symbol}`);
+      unsubscribe();
+      setIsConnected(false);
     };
-  }, [broker, symbol]);
+  }, [broker, symbol, subscribeOrderbook]);
+
+  // 실시간 체결가 구독
+  useEffect(() => {
+    const handleTradeData = (data: any) => {
+      if (data && data.price) {
+        setCurrentPrice(Number(data.price));
+      }
+    };
+
+    const unsubscribe = subscribeTradePrice(broker, symbol, handleTradeData);
+
+    return () => {
+      unsubscribe();
+    };
+  }, [broker, symbol, subscribeTradePrice]);
 
   // 전체 목 데이터 제거, 실시간 데이터 사용
   const displayedAsks = asks.slice(0, displayCount);

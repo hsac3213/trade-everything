@@ -1,7 +1,8 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
-from .price import get_realtime_orderbook_price, get_realtime_trade_price
+from ..BrokerCommon.DataTypes import *
 from .common import API_URL, WSS_URL, WS_URL, BINANCE_ED25519_API_KEY
-from .common import get_signed_payload_ws, get_signed_payload_post, signing
+from .common import get_signed_payload_ws, get_signed_payload_post
+from .price import get_realtime_orderbook_price, get_realtime_trade_price
 from .order import place_order
 
 from typing import List, Dict, Any, Callable, Awaitable
@@ -39,7 +40,7 @@ class BinanceBroker(BrokerInterface):
         """
         return place_order(None, order)
 
-    def get_orders(self) -> List[Dict[str, Any]]:
+    def get_orders(self) -> List[NormalizedOrder]:
         """
         Binance 미체결 주문 목록
         """
@@ -55,7 +56,7 @@ class BinanceBroker(BrokerInterface):
             resp = requests.get(url, headers=headers, params=payload, timeout=10)
             resp_json = resp.json()
 
-            orders = []
+            orders: List[NormalizedOrder] = []
             for order in resp_json:
                 orders.append({
                     "order_id": order["orderId"],

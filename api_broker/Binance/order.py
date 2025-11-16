@@ -19,10 +19,7 @@ def place_order(user, order):
             "price": str(order["price"]),
             "quantity": str(order["quantity"]),
         }
-        pprint(params)
         payload = get_signed_payload_post(params)
-
-        pprint(payload)
 
         url = API_URL + f"/api/v3/order"
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
@@ -38,6 +35,9 @@ def place_order(user, order):
             result["result"] = "success"
             result["order_id"] = "order_id"
             result["order"] = order
+        
+        if "msg" in resp_json:
+            result["message"] = resp_json["msg"]
 
         return result
 

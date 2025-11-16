@@ -44,8 +44,8 @@ const Order: React.FC<OrderProps> = ({ broker, symbol, selectedPrice, onOrderSuc
       const orderData = {
         symbol: symbol.toLowerCase(),
         side: side,
-        quantity: parseFloat(amount),
-        price: parseFloat(price),
+        quantity: amount,
+        price: price,
       };
 
       const response = await fetch(`${API_URL}/place_order/${broker}`, {
@@ -59,7 +59,7 @@ const Order: React.FC<OrderProps> = ({ broker, symbol, selectedPrice, onOrderSuc
 
       const data = await response.json();
 
-      if (data.message === 'success') {
+      if (data.result === 'success') {
         showToast.success(`${side} order placed successfully`);
         // 주문 성공 후 입력 필드 초기화
         setAmount('');
@@ -71,7 +71,7 @@ const Order: React.FC<OrderProps> = ({ broker, symbol, selectedPrice, onOrderSuc
           onOrderSuccess();
         }
       } else {
-        showToast.error(`Order failed: ${data.error || 'Unknown error'}`);
+        showToast.error(`Order failed: ${data.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error placing order:', error);

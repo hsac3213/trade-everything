@@ -32,6 +32,7 @@ def get_signed_payload_ws(method, params):
     timestamp = int(time.time() * 1000)
     params["timestamp"] = timestamp
 
+    # 파라미터들을 정렬 후 서명 <-> HTTP와 다름
     payload_for_sign = "&".join([f"{param}={value}" for param, value in sorted(params.items())])
 
     signature = base64.b64encode(private_key.sign(payload_for_sign.encode("ASCII")))
@@ -56,6 +57,7 @@ def get_signed_payload_post(params):
     timestamp = str(int(time.time() * 1000))
     params["timestamp"] = timestamp
 
+    # 파라미터들을 정렬하지 않고 서명 <-> WS와 다름
     payload_for_sign = "&".join([f"{param}={value}" for param, value in params.items()])
 
     signature = base64.b64encode(private_key.sign(payload_for_sign.encode("ASCII")))

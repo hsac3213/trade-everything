@@ -52,19 +52,24 @@ async def test(current_user: dict = Depends(get_current_user)):
 @app.post("/place_order/{broker_name}")
 async def place_order(broker_name: str, order: dict, current_user: dict = Depends(get_current_user)):
     try:
-        print(order)
-
         broker = BrokerFactory.create_broker(broker_name)
         result = broker.place_order(order)
-        return {
-            "message": "success",
-            "broker": broker_name,
-            "result": result,
-        }
+
+        if result["result"] == "success":
+            return {
+                "result": "success",
+                "broker": broker_name,
+                "result": result,
+            }
+        else:
+            return {
+                "result": "error",
+                "message": result["message"],
+            }
     except Exception as e:
         return {
-            "message": "error",
-            "error": str(e)
+            "result": "error",
+            "message": str(e)
         }
 
 @app.get("/orders/{broker_name}")

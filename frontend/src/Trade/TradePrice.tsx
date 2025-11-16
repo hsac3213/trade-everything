@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSharedTradeWebSocket } from './SharedTradePriceWebsocket';
+import { useWebSocket } from '../Context/WebSocketContext';
 
 // --- 타입 정의 ---
 
@@ -47,35 +47,46 @@ const TradePrice: React.FC<TradePriceProps> = ({
   const [isConnected, setIsConnected] = useState(false);
   const MAX_TRADES = 30; // 최대 30개까지 보관
 
-  // 공유 WebSocket Hook으로 실시간 체결가 구독
-  const tradeData = useSharedTradeWebSocket(broker, symbol);
+  // WebSocket Context 사용
+  const { subscribeTradePrice } = useWebSocket();
 
-  // 체결 데이터가 업데이트될 때마다 trades 배열에 추가
+  // 체결 데이터 구독
   useEffect(() => {
-    if (tradeData && tradeData.price) {
-      setIsConnected(true);
-      
-      // isBuyerMaker가 있으면 사용, 없으면 side로 판단
-      let isBuyerMaker = false;
-      if (tradeData.isBuyerMaker !== undefined) {
-        isBuyerMaker = tradeData.isBuyerMaker;
-      } else if (tradeData.side) {
-        isBuyerMaker = tradeData.side === 'sell';
+    console.log(`📊 Subscribing to trade price: ${broker} ${symbol}`);
+    setIsConnected(true);
+
+    const handleTradeData = (data: any) => {
+      if (data && data.price) {
+        // isBuyerMaker가 있으면 사용, 없으면 side로 판단
+        let isBuyerMaker = false;
+        if (data.isBuyerMaker !== undefined) {
+          isBuyerMaker = data.isBuyerMaker;
+        } else if (data.side) {
+          isBuyerMaker = data.side === 'sell';
+        }
+        
+        const newTrade: Trade = {
+          price: Number(data.price),
+          quantity: Number(data.quantity || data.volume || 0),
+          time: data.time || new Date().toLocaleTimeString('en-US', { hour12: false }),
+          isBuyerMaker: isBuyerMaker,
+        };
+        
+        // 새 체결을 맨 위에 추가하고 최대 30개까지만 유지
+        setTrades(prevTrades => [newTrade, ...prevTrades].slice(0, MAX_TRADES));
       }
-      
-      const newTrade: Trade = {
-        price: Number(tradeData.price),
-        quantity: Number(tradeData.quantity || tradeData.volume || 0),
-        time: tradeData.timestamp 
-          ? new Date(tradeData.timestamp).toLocaleTimeString('en-US', { hour12: false })
-          : new Date().toLocaleTimeString('en-US', { hour12: false }),
-        isBuyerMaker: isBuyerMaker, // true: 매도 체결 (빨강), false: 매수 체결 (초록)
-      };
-      
-      // 새 체결을 맨 위에 추가하고 최대 30개까지만 유지
-      setTrades(prevTrades => [newTrade, ...prevTrades].slice(0, MAX_TRADES));
-    }
-  }, [tradeData]);
+    };
+
+    // WebSocket 구독
+    const unsubscribe = subscribeTradePrice(broker, symbol, handleTradeData);
+
+    // Cleanup
+    return () => {
+      console.log(`🧹 Unsubscribing from trade price: ${broker} ${symbol}`);
+      unsubscribe();
+      setIsConnected(false);
+    };
+  }, [broker, symbol, subscribeTradePrice]);
 
   return (
     <div className="bg-gray-800 p-3 rounded-lg shadow-lg h-[426px] flex flex-col">
@@ -118,17 +129,13 @@ const TradePrice: React.FC<TradePriceProps> = ({
       
       {/* 체결 내역 영역 - 스크롤 가능, 최대 30개 */}
       <div className="flex-1 overflow-y-auto space-y-0.5">
-        {trades.length > 0 ? (
+        {(
           trades.map((trade, index) => (
             <TradePriceRow 
               key={`trade-${trade.time}-${index}`} 
               trade={trade}
             />
           ))
-        ) : (
-          <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-            {isConnected ? '체결 대기 중...' : '연결 대기 중...'}
-          </div>
         )}
       </div>
     </div>
