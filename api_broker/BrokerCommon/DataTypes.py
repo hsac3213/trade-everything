@@ -5,7 +5,6 @@ from typing import TypedDict, Literal
 
 class NormalizedAsset(TypedDict):
     display_name: str
-    symbol: str
     amount: str
 
 class NormalizedTrade(TypedDict):
@@ -29,3 +28,7 @@ class NormalizedPlaceOrder(TypedDict):
     side: Literal['buy', 'sell']
     price: str
     amount: str
+
+class NormalizedCancelOrder(TypedDict):
+    symbol: str
+    order_id: str

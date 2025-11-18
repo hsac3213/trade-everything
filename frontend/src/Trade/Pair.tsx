@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SecureAuthService } from '../Auth/AuthService';
 import { API_URL } from '../Common/Constants';
+import { useBroker } from '../Context/BrokerContext';
 
 interface TradingPair {
   symbol: string;
@@ -16,8 +17,11 @@ interface PairProps {
 }
 
 // --- 거래 페어 선택 컴포넌트 ---
-const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
-  const [selectedPair, setSelectedPair] = useState<string>('BTC/USDT');
+const Pair: React.FC<PairProps> = ({ broker: propBroker }) => {
+  const { broker, symbol, setSymbol } = useBroker();
+  const effectiveBroker = propBroker || broker;
+  
+  const [selectedPair, setSelectedPair] = useState<string>(symbol);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [modalSearchTerm, setModalSearchTerm] = useState<string>('');
@@ -29,7 +33,7 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
   // 즐겨찾기 목록 로드
   useEffect(() => {
     loadFavorites();
-  }, [broker]);
+  }, [effectiveBroker]);
 
   const loadFavorites = async () => {
     try {
@@ -45,8 +49,8 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
         return;
       }
 
-      const url = broker 
-        ? `${API_URL}/api/favorites/list?broker=${encodeURIComponent(broker)}`
+      const url = effectiveBroker 
+        ? `${API_URL}/api/favorites/list?broker=${encodeURIComponent(effectiveBroker)}`
         : `${API_URL}/api/favorites/list`;
       
       const response = await fetch(url, {
@@ -119,7 +123,7 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
       if (isFavorite) {
         // 즐겨찾기 제거
         const response = await fetch(
-          `${API_URL}/api/favorites/remove?broker=${encodeURIComponent(broker)}&symbol=${encodeURIComponent(symbol)}`,
+          `${API_URL}/api/favorites/remove?broker=${encodeURIComponent(effectiveBroker)}&symbol=${encodeURIComponent(symbol)}`,
           {
             method: 'DELETE',
             headers: {
@@ -148,7 +152,7 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            broker,
+            broker: effectiveBroker,
             symbol,
             display_name: displayName
           })
@@ -175,9 +179,9 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
     // 모달이 열릴 때 심볼 목록 가져오기
   useEffect(() => {
     if (isModalOpen) {
-      fetchSymbols(broker);
+      fetchSymbols(effectiveBroker);
     }
-  }, [isModalOpen, broker]);
+  }, [isModalOpen, effectiveBroker]);
 
   const fetchSymbols = async (selectedBroker: string) => {
     setIsLoading(true);
@@ -214,8 +218,9 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
     }
   };
 
-  const handlePairSelect = (symbol: string) => {
-    setSelectedPair(symbol);
+  const handlePairSelect = (selectedSymbol: string) => {
+    setSelectedPair(selectedSymbol);
+    setSymbol(selectedSymbol.toLowerCase()); // 전역 상태 업데이트 (소문자로 변환)
     setIsModalOpen(false);
     setModalSearchTerm('');
   };
@@ -246,7 +251,10 @@ const Pair: React.FC<PairProps> = ({ broker = 'Binance' }) => {
         {filteredPairs.map((pair) => (
           <div
             key={pair.symbol}
-            onClick={() => setSelectedPair(pair.symbol)}
+            onClick={() => {
+              setSelectedPair(pair.symbol);
+              setSymbol(pair.symbol.toLowerCase()); // 전역 상태 업데이트
+            }}
             className={`p-3 rounded-md cursor-pointer transition-colors ${
               selectedPair === pair.symbol
                 ? 'bg-blue-600 hover:bg-blue-700'

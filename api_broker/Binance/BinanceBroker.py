@@ -3,7 +3,7 @@ from ..BrokerCommon.DataTypes import *
 from .common import API_URL, WSS_URL, WS_URL, BINANCE_ED25519_API_KEY
 from .common import get_signed_payload_ws, get_signed_payload_post
 from .price import get_realtime_orderbook_price, get_realtime_trade_price
-from .order import place_order
+from .order import place_order, cancel_order, cancel_all_orders
 
 from typing import List, Dict, Any, Callable, Awaitable
 import websockets
@@ -17,6 +17,11 @@ import uuid
 
 from pprint import pprint
 
+# 웹소켓 하나를 계속 유지하고 구독과 해제를 한 소켓에서 수행하는 것도 고려해보기
+# Binance는 IP 당 limit이 존재하므로 나중에는 클라이언트에서 웹소켓 스트림을 직접 구독하도록 수정하기
+# 또는, 아래와 같은 이중 구조도 고려해볼 것
+# -> 클라이언트의 웹소켓 : Display
+# -> 서버의 웹소켓 : 서버 사이드 자동 거래 스크립트 등에 활용
 
 # Endpoint 마다 rate limit 관리 코드 추가하기!!
 # HTTP 429 return code is used when breaking a request rate limit.
@@ -39,6 +44,18 @@ class BinanceBroker(BrokerInterface):
         Binance 주문 전송
         """
         return place_order(None, order)
+    
+    def cancel_order(self, order) -> List[Dict[str, Any]]:
+        """
+        Binance 주문 취소
+        """
+        return cancel_order(None, order)
+    
+    def cancel_all_orders(self) -> List[Dict[str, Any]]:
+        """
+        Binance 모든 주문 취소
+        """
+        return cancel_all_orders(None)
 
     def get_orders(self) -> List[NormalizedOrder]:
         """
@@ -308,9 +325,10 @@ class BinanceBroker(BrokerInterface):
             'timestamp': '2025-01-01T00:00:00Z'
         }
     
-    def get_candle(self, symbol: str, interval: str, start_time: str):
+    def get_candle(self, symbol: str, interval: str, start_time: str = None):
         try:
             symbol = symbol.upper()
+            interval = interval.lower()
 
             # KST datetime 문자열을 UTC 타임스탬프로 변환
             start_time_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
@@ -322,8 +340,13 @@ class BinanceBroker(BrokerInterface):
                 "interval": interval,
                 # 파라미터 이름 유의!(startTime, not start_time)
                 "startTime": int(start_time_utc_timestamp),
+                # limit : Default(500), Max(1000)
                 "limit": 1000,
             }
+
+            print("[ get_candle ]")
+            print(f"interval : {interval}")
+            print(f"start_time : {start_time}")
             
             resp = requests.get(url, params=params, timeout=10)
             resp.raise_for_status()

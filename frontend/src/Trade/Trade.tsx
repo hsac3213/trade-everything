@@ -21,12 +21,11 @@ const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol, sel
   console.log(`📊 [Trade.tsx] ChartPlaceholder rendering with broker: ${broker}, symbol: ${symbol}`);
   
   const timeframes = [
-    { value: 'Tick', label: 'Tick' },
-    { value: '1s', label: '1s' },
-    { value: '1m', label: '1m' },
-    { value: '1H', label: '1H' },
-    { value: '1D', label: '1D' },
-    { value: '1W', label: '1W' },
+    //{ value: '1s', label: '1s' },
+    //{ value: '1m', label: '1m' },
+    { value: '1H', label: '1h' },
+    { value: '1D', label: '1d' },
+    //{ value: '1W', label: '1w' },
   ];
 
   return (
@@ -57,7 +56,8 @@ const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol, sel
           width="1300px"
           broker={broker}
           symbol={symbol}
-          key={`candle-${broker}-${symbol}`}
+          interval={timeframe}
+          key={`candle-${broker}-${symbol}-${timeframe}`}
         />
       </div>
       

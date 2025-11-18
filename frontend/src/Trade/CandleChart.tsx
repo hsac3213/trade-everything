@@ -23,9 +23,35 @@ class CandleDatafeed {
     this._broker = broker;
     this._symbol = symbol;
     this._interval = interval;
-    this._earliestDate = new Date();
-    this._earliestDate.setDate(this._earliestDate.getDate() - 30);
+    this._earliestDate = this._getInitialDate(interval);
     this._data = [];
+  }
+  
+  private _getInitialDate(interval: string): Date {
+    const now = new Date();
+    const unit = interval.slice(-1).toLowerCase();
+    
+    switch (unit) {
+      case 's': // 초봉: 1시간 전
+        now.setHours(now.getHours() - 1);
+        break;
+      case 'm': // 분봉: 12시간 전
+        now.setHours(now.getHours() - 12);
+        break;
+      case 'h': // 시간봉: 7일 전
+        now.setDate(now.getDate() - 7);
+        break;
+      case 'd': // 일봉: 30일 전
+        now.setDate(now.getDate() - 30);
+        break;
+      case 'w': // 주봉: 90일 전
+        now.setDate(now.getDate() - 90);
+        break;
+      default: // 기본: 7일 전
+        now.setDate(now.getDate() - 7);
+    }
+    
+    return now;
   }
   
   async getBars(numberOfExtraBars: number): Promise<CandleWithVolume[]> {
@@ -34,22 +60,33 @@ class CandleDatafeed {
       const getIntervalMs = (interval: string): number => {
         const value = parseInt(interval);
         const unit = interval.slice(-1).toLowerCase();
+
+        console.log("Candle Interval : " + interval);
         
         switch (unit) {
           case 's': return value * 1000;
           case 'm': return value * 60 * 1000;
           case 'h': return value * 60 * 60 * 1000;
           case 'd': return value * 24 * 60 * 60 * 1000;
+          case 'w': return value * 7 * 24 * 60 * 60 * 1000;
           default: return 60 * 60 * 1000;
         }
       };
+
+      console.log("this._earliestDate : " + this._earliestDate);
+
+      console.log("getIntervalMs : " + getIntervalMs(this._interval));
       
       // numberOfExtraBars만큼 과거 시간 계산
       const intervalMs = getIntervalMs(this._interval);
       const startDate = new Date(this._earliestDate);
       startDate.setTime(startDate.getTime() - (intervalMs * numberOfExtraBars));
+
+      console.log("numberOfExtraBars : " + numberOfExtraBars);
+      console.log("intervalMs * numberOfExtraBars : " + (intervalMs * numberOfExtraBars));
       
       const startTime = startDate.toISOString().slice(0, 19).replace('T', ' ');
+      console.log("startTime : " + startTime);
       
       // API 호출
       const url = `${CANDLE_API_URL}/${this._broker}?symbol=${this._symbol}&interval=${this._interval}&start_time=${encodeURIComponent(startTime)}`;
@@ -88,8 +125,7 @@ class CandleDatafeed {
     this._broker = broker;
     this._symbol = symbol;
     this._interval = interval;
-    this._earliestDate = new Date();
-    this._earliestDate.setDate(this._earliestDate.getDate() - 30);
+    this._earliestDate = this._getInitialDate(interval);
     this._data = [];
   }
 }
@@ -353,7 +389,7 @@ function CandleChart({
           
           legendRef.current.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px;">
-              <strong style="color: ${textColor};">${symbol}</strong>
+              <strong style="color: ${textColor};">${symbol.toUpperCase()}</strong>
               <span style="color: #888;">O</span> <strong style="color: ${candleColor};">${open}</strong>
               <span style="color: #888;">H</span> <strong style="color: ${candleColor};">${high}</strong>
               <span style="color: #888;">L</span> <strong style="color: ${candleColor};">${low}</strong>
@@ -363,7 +399,7 @@ function CandleChart({
         } else {
           legendRef.current.innerHTML = `
             <div style="color: ${textColor};">
-              <strong>${symbol}</strong>
+              <strong>${symbol.toUpperCase()}</strong>
             </div>
           `;
         }

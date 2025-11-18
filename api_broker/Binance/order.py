@@ -1,5 +1,6 @@
 from .common import API_URL, BINANCE_ED25519_API_KEY
 from .common import get_signed_payload_post
+from ..Common.Debug import func_name
 
 import requests
 from pprint import pprint
@@ -24,11 +25,10 @@ def place_order(user, order):
         url = API_URL + f"/api/v3/order"
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
         resp_json = resp.json()
-
-        pprint(resp_json)
         
         result = {
             "result": "error",
+            "message": "",
         }
 
         if "orderId" in resp_json:
@@ -39,15 +39,125 @@ def place_order(user, order):
         if "msg" in resp_json:
             result["message"] = resp_json["msg"]
 
+        pprint(result)
+
         return result
 
     except requests.exceptions.RequestException as e:
-        print("[ get_orders ]")
+        print(f"[ {func_name()} ]")
         print("requests.exceptions.RequestException:")
         print(e)
         return []
     except Exception as e:
-        print("[ get_orders ]")
+        print(f"[ {func_name()} ]")
+        print(e)
+        import traceback
+        traceback.print_exc()
+        return []
+
+def cancel_order(user, order):
+    try:
+        # 미체결 주문 목록 조회
+        headers = {
+            "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
+        }
+
+        params = {}
+        payload = get_signed_payload_post(params)
+
+        url = API_URL + f"/api/v3/openOrders"
+        resp = requests.get(url, headers=headers, params=payload, timeout=10)
+        resp_json = resp.json()
+
+        orders: List[NormalizedOrder] = []
+        for order in resp_json:
+            orders.append({
+                "order_id": order["orderId"],
+                # e.g. BTCUSDT
+                "symbol": order["symbol"],
+                # BUY or SELL
+                "side": str(order["side"]).lower(),
+                "price": order["price"],
+                "amount": order["origQty"],
+            })
+
+        return orders
+    
+        headers = {
+            "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
+        }
+
+        params = {
+            "symbol": str(order["symbol"]).upper(),
+            "orderId": order["order_id"],
+        }
+        payload = get_signed_payload_post(params)
+
+        url = API_URL + f"/api/v3/order"
+        resp = requests.delete(url, headers=headers, data=payload, timeout=10)
+        resp_json = resp.json()
+
+        pprint(resp_json)
+
+        print(f"[ {func_name()} ]")
+        
+        result = {
+            "result": "error",
+            "message": "",
+        }
+
+        if "status" in resp_json:
+            if resp_json["status"] == "CANCELED":
+                result["result"] = "success"
+        
+        if "msg" in resp_json:
+            result["message"] = resp_json["msg"]
+
+        return result
+
+    except requests.exceptions.RequestException as e:
+        print(f"[ {func_name()} ]")
+        print("requests.exceptions.RequestException:")
+        print(e)
+        return []
+    except Exception as e:
+        print(f"[ {func_name()} ]")
+        print(e)
+        import traceback
+        traceback.print_exc()
+        return []
+    
+def cancel_all_orders(user, order):
+    try:
+        headers = {
+            "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
+        }
+
+        params = {
+            "symbol": str(order["symbol"]).upper(),
+        }
+        payload = get_signed_payload_post(params)
+
+        url = API_URL + f"/api/v3/openOrders"
+        resp = requests.delete(url, headers=headers, data=payload, timeout=10)
+        resp_json = resp.json()
+
+        pprint(resp_json)
+        
+        result = {
+            "result": "error",
+            "message": "",
+        }
+
+        return result
+
+    except requests.exceptions.RequestException as e:
+        print(f"[ {func_name()} ]")
+        print("requests.exceptions.RequestException:")
+        print(e)
+        return []
+    except Exception as e:
+        print(f"[ {func_name()} ]")
         print(e)
         import traceback
         traceback.print_exc()

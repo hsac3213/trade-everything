@@ -61,22 +61,91 @@ const OpenOrder: React.FC<OpenOrderProps> = ({ broker, onRefreshRequest }) => {
 
   // 모든 주문 취소
   const cancelAllOrders = async () => {
+    if (openOrders.length === 0) {
+      showToast.info('No orders to cancel');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to cancel all ${openOrders.length} orders?`)) {
+      return;
+    }
+
     try {
-      showToast.success(`All orders have been canceled. (#orders = ${openOrders.length})`);
-      // TODO: 실제 취소 API 호출
-      await fetchOrders(); // 주문 목록 갱신
+      const token = SecureAuthService.getAccessToken();
+      let successCount = 0;
+      let failCount = 0;
+
+      // 모든 주문을 순차적으로 취소
+      for (const order of openOrders) {
+        try {
+          const response = await fetch(`${API_URL}/cancel_order/${broker}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              symbol: order.symbol,
+              order_id: order.order_id
+            })
+          });
+
+          const data = await response.json();
+          
+          if (data.message === 'success') {
+            successCount++;
+          } else {
+            failCount++;
+            console.error(`Failed to cancel order ${order.order_id}:`, data.error);
+          }
+        } catch (error) {
+          failCount++;
+          console.error(`Error canceling order ${order.order_id}:`, error);
+        }
+      }
+
+      // 결과 표시
+      if (successCount > 0) {
+        showToast.success(`${successCount} order(s) canceled successfully`);
+      }
+      if (failCount > 0) {
+        showToast.error(`Failed to cancel ${failCount} order(s)`);
+      }
+
+      // 주문 목록 갱신
+      await fetchOrders();
     } catch (error) {
+      console.error('Error in cancelAllOrders:', error);
       showToast.error('Failed to cancel orders');
     }
   };
 
   // 개별 주문 취소
-  const cancelOrder = async (orderId: string) => {
+  const cancelOrder = async (orderId: string, symbol: string) => {
     try {
-      showToast.success(`Order ${orderId} has been canceled`);
-      // TODO: 실제 취소 API 호출
-      await fetchOrders(); // 주문 목록 갱신
+      const token = SecureAuthService.getAccessToken();
+      const response = await fetch(`${API_URL}/cancel_order/${broker}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          symbol: symbol,
+          order_id: orderId
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.message === 'success') {
+        showToast.success(`Order ${orderId} canceled`);
+        await fetchOrders(); // 주문 목록 갱신
+      } else {
+        showToast.error(`Failed to cancel order: ${data.error || 'Unknown error'}`);
+      }
     } catch (error) {
+      console.error('Error canceling order:', error);
       showToast.error('Failed to cancel order');
     }
   };
@@ -122,7 +191,7 @@ const OpenOrder: React.FC<OpenOrderProps> = ({ broker, onRefreshRequest }) => {
               <span className="font-mono text-xs">{order.amount}</span>
               <button 
                 className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs transition-colors"
-                onClick={() => cancelOrder(order.order_id)}
+                onClick={() => cancelOrder(order.order_id, order.symbol)}
               >
                 Cancel
               </button>

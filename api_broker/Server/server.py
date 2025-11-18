@@ -59,7 +59,6 @@ async def place_order(broker_name: str, order: dict, current_user: dict = Depend
             return {
                 "result": "success",
                 "broker": broker_name,
-                "result": result,
             }
         else:
             return {
@@ -70,6 +69,52 @@ async def place_order(broker_name: str, order: dict, current_user: dict = Depend
         return {
             "result": "error",
             "message": str(e)
+        }
+    
+@app.post("/cancel_order/{broker_name}")
+async def cancel_order(broker_name: str, order: dict, current_user: dict = Depends(get_current_user)):
+    try:
+        broker = BrokerFactory.create_broker(broker_name)
+        result = broker.cancel_order(order)
+
+        if result["result"] == "success":
+            return {
+                "message": "success",
+                "broker": broker_name,
+                "result": result,
+            }
+        else:
+            return {
+                "message": "error",
+                "error": result["message"],
+            }
+    except Exception as e:
+        return {
+            "message": "error",
+            "error": str(e)
+        }
+    
+@app.post("/cancel_all_orders/{broker_name}")
+async def cancel_all_orders(broker_name: str, current_user: dict = Depends(get_current_user)):
+    try:
+        broker = BrokerFactory.create_broker(broker_name)
+        result = broker.cancel_all_orders()
+
+        if result["result"] == "success":
+            return {
+                "message": "success",
+                "broker": broker_name,
+                "result": result,
+            }
+        else:
+            return {
+                "message": "error",
+                "error": result["message"],
+            }
+    except Exception as e:
+        return {
+            "message": "error",
+            "error": str(e)
         }
 
 @app.get("/orders/{broker_name}")

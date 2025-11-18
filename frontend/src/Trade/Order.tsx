@@ -58,8 +58,9 @@ const Order: React.FC<OrderProps> = ({ broker, symbol, selectedPrice, onOrderSuc
       });
 
       const data = await response.json();
+      console.log(data);
 
-      if (data.result === 'success') {
+      if (data['result'] === 'success') {
         showToast.success(`${side} order placed successfully`);
         // 주문 성공 후 입력 필드 초기화
         setAmount('');
@@ -168,7 +169,7 @@ const Order: React.FC<OrderProps> = ({ broker, symbol, selectedPrice, onOrderSuc
         <div className="text-center text-gray-400 text-sm">
           <p>Total Order Price</p>
           <p className="text-lg text-white font-mono">
-            {((Number(price) || 0) * (Number(amount) || 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })} KRW
+            {((Number(price) || 0) * (Number(amount) || 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })} USD
           </p>
         </div>
 
