@@ -119,6 +119,7 @@ const Order: React.FC<OrderProps> = ({ broker, symbol, selectedPrice, onOrderSuc
           >
             Limit
           </button>
+          {/*
           <button
             onClick={() => setOrderType('market')}
             className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
@@ -129,6 +130,7 @@ const Order: React.FC<OrderProps> = ({ broker, symbol, selectedPrice, onOrderSuc
           >
             Market
           </button>
+          */}
         </div>
       </div>
       <div className="space-y-3">

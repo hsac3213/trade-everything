@@ -410,12 +410,7 @@ async def websocket_proxy(ws: WebSocket):
 def main():
     print(f"Starting {SERVER_NAME}...")
     
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=SERVER_PORT,
-        log_level="info"
-    )
+    uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="info")
 
 if __name__ == "__main__":
     main()
