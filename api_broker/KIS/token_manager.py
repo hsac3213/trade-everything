@@ -16,6 +16,9 @@ DB_ROOT_CA_PATH = os.environ.get("DB_ROOT_CA_PATH")
 DB_CERT_PATH = os.environ.get("DB_CERT_PATH")
 DB_CERT_KEY_PATH = os.environ.get("DB_CERT_KEY_PATH")
 
+# ACCOUNT_NUMBER_0
+# ACCOUNT_NUMBER_1
+
 redis_manager = RedisManager()
 
 def get_db_conn():

@@ -1,6 +1,6 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
 from ..BrokerCommon.DataTypes import *
-from .common import API_URL, WSS_URL, WS_URL, BINANCE_ED25519_API_KEY
+from .common import API_URL, WSS_URL, WS_URL, get_key
 from .common import get_signed_payload_ws, get_signed_payload_post
 from .price import get_realtime_orderbook_price, get_realtime_trade_price
 from .order import place_order, cancel_order, cancel_all_orders
@@ -63,7 +63,7 @@ class BinanceBroker(BrokerInterface):
         """
         try:
             headers = {
-                "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
+                "X-MBX-APIKEY": get_key(user_id)["API"],
             }
 
             params = {}
@@ -108,7 +108,7 @@ class BinanceBroker(BrokerInterface):
             url = WS_URL
             async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
                 params = {
-                    "apiKey": BINANCE_ED25519_API_KEY,
+                    "apiKey": get_key(user_id)["API"],
                 }
                 payload = get_signed_payload_ws("session.logon", params)
                 await ws.send(json.dumps(payload))
@@ -169,7 +169,7 @@ class BinanceBroker(BrokerInterface):
             url = WS_URL
             async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
                 params = {
-                    "apiKey": BINANCE_ED25519_API_KEY,
+                    "apiKey": get_key(user_id)["API"],
                 }
                 payload = get_signed_payload_ws("session.logon", params)
                 await ws.send(json.dumps(payload))
@@ -219,7 +219,7 @@ class BinanceBroker(BrokerInterface):
     def get_assets(self) -> List[Dict[str, Any]]:
         try:
             headers = {
-                "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
+                "X-MBX-APIKEY": get_key(user_id)["API"],
             }
 
             params = {
