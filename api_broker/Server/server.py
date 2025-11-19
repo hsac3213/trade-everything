@@ -351,6 +351,7 @@ async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
             try:
                 if data["symbol"].lower() == symbol.lower():
                     await ws.send_json(data)
+                    
             except WebSocketDisconnect:
                 is_connected = False
                 raise asyncio.CancelledError("Client disconnected")

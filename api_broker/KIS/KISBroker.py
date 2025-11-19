@@ -189,7 +189,7 @@ class KISBroker(BrokerInterface):
             # 콜백 리스트 호출
             async with KISBroker._user_ws[user_id].callbacks_lock:
                 # 안전한 원소 제거를 위하여 리스트 복사
-                callbacks_copy = KISBroker._user_ws[user_id].trade_callbacks[:]
+                callbacks_copy = KISBroker._user_ws[user_id].orderbook_callbacks[:]
                 for callback in callbacks_copy:
                     try:
                         await callback(normalized_data)
@@ -247,7 +247,7 @@ class KISBroker(BrokerInterface):
                 return
             
             resp_dict = {COLUMN_TO_KOR_DICT[col]: value for col, value in zip(columns, real_data)}
-            
+
             normalized_data = {
                 "symbol": resp_dict["종목코드"].replace("DNAS", ""),
                 "price": float(resp_dict["현재가"]) if resp_dict["현재가"] else 0.0,
