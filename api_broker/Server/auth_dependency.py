@@ -108,7 +108,25 @@ async def get_current_user_optional(
     except HTTPException:
         return None
 
-async def get_user_from_token(token) -> Dict[str, Any]:    
+async def get_user_from_token(
+    token: str,
+    client_ip: str = "unknown",
+    user_agent: str = ""
+) -> Dict[str, Any]:
+    """
+    토큰으로부터 사용자 정보 가져오기 (WebSocket용)
+    
+    Args:
+        token: JWT 액세스 토큰
+        client_ip: 클라이언트 IP (핑거프린트 검증용)
+        user_agent: User-Agent 헤더 (핑거프린트 검증용)
+    
+    Returns:
+        사용자 정보 딕셔너리
+    
+    Raises:
+        HTTPException: 인증 실패 시
+    """
     # 1️⃣ JWT 검증 + 블랙리스트 확인
     payload = session_manager.verify_token(token)
     if not payload:
@@ -126,6 +144,19 @@ async def get_user_from_token(token) -> Dict[str, Any]:
             detail="Session expired",
             headers={"WWW-Authenticate": "Bearer"}
         )
+    
+    # 3️⃣ 세션 핑거프린트 검증 (세션 하이재킹 방지)
+    if client_ip != "unknown":
+        if not session_manager.verify_session_fingerprint(token, client_ip, user_agent):
+            # 의심스러운 활동 감지 → 모든 세션 무효화
+            user_id = payload.get("user_id")
+            session_manager.revoke_all_user_sessions(user_id)
+            
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session hijacking detected. All sessions have been revoked for security.",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
     
     # 4️⃣ 세션 갱신 (슬라이딩 윈도우)
     session_manager.refresh_session(token)

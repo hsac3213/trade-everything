@@ -10,12 +10,12 @@ class BrokerFactory:
     }
     
     @classmethod
-    def create_broker(cls, broker_name: str, api_key: str = None, secret_key: str = None) -> BrokerInterface:
+    def create_broker(cls, broker_name: str, user_id: str = None) -> BrokerInterface:
         broker_class = cls._brokers.get(broker_name)
         if not broker_class:
             raise ValueError(f"Unsupported broker: {broker_name}")
         
-        return broker_class(api_key=api_key, secret_key=secret_key)
+        return broker_class(user_id=user_id)
     
     @classmethod
     def register_broker(cls, name: str, broker_class: Type[BrokerInterface]):

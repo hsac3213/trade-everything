@@ -76,7 +76,7 @@ def get_ws_token(user_id):
         sec_key = token["token"]
 
     # KIS API 서버에 새로운 웹소켓 토큰을 요청
-    print('Current ws token in file is expired. Request new ws token.')
+    print('Current ws token in cache is expired. Request new ws token.')
     json_req = {
         'grant_type': 'client_credentials',
         'appkey': app_key,
@@ -84,6 +84,8 @@ def get_ws_token(user_id):
     }
     headers = { 'content-type': 'application/json' }
     resp = requests.post(API_URL + '/oauth2/Approval', headers=headers, data=json.dumps(json_req))
+
+    print(json_req)
 
     if 'approval_key' in resp.json():
         approval_key = resp.json()['approval_key']

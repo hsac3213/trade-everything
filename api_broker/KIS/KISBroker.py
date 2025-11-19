@@ -7,11 +7,16 @@ import json
 import asyncio
 import requests
 import pandas as pd
-import os
+
+# [ 종목 코드 파일 ]
+# 아래 파일은 업데이트될 가능성이 있음에 유의
+KIS_TICKERS_PATH = "./KIS/NASMST.COD"
 
 # 같은 app key로 2개 이상의 소켓을 동시에 사용할 수 없음
 # -> 하나의 소켓에서 호가와 체결가를 동시에 가져올수는 있음(최대 41건, 2025-11-01 기준)
+# -> 오류 응답은 다음과 같음
 # {"header":{"tr_id":"(null)","tr_key":"","encrypt":"N"},"body":{"rt_cd":"9","msg_cd":"OPSP8996","msg1":"ALREADY IN USE appkey"}}
+
 class KISBroker(BrokerInterface):
     # 클래스 레벨 공유 WebSocket 관리 (모든 인스턴스가 공유)
     _shared_ws = None
@@ -22,14 +27,15 @@ class KISBroker(BrokerInterface):
     _shared_orderbook_callbacks = []  # 여러 구독자 지원
     _shared_trade_callbacks = []      # 여러 구독자 지원
     
-    def __init__(self, api_key: str = None, secret_key: str = None):
-        self.api_key = api_key
-        self.secret_key = secret_key
+    def __init__(self, user_id: str = None):
+        self.user_id = user_id
+
+        print("[ KISBroker ]")
+        print(f"user_id : {user_id}")
 
     def get_symbols(self) -> List[Dict[str, Any]]:
         try:
-            # 아래 파일은 업데이트될 가능성이 있음에 유의
-            df = pd.read_table(f"./KIS/NASMST.COD",sep="\t",encoding="cp949", header=None)
+            df = pd.read_table(KIS_TICKERS_PATH, sep="\t",encoding="cp949", header=None)
             
             symbols = []
             for row in df.itertuples():
@@ -116,7 +122,7 @@ class KISBroker(BrokerInterface):
                 # 호가 구독 (HDFSASP0)
                 payload = {
                     "header": {
-                        "approval_key": get_ws_token(),
+                        "approval_key": get_ws_token(self.user_id),
                         "custtype": "P",
                         "tr_type": "1",
                         "content-type": "utf-8",
@@ -133,7 +139,7 @@ class KISBroker(BrokerInterface):
                 # 체결가 구독 (HDFSCNT0)
                 payload = {
                     "header": {
-                        "approval_key": get_ws_token(),
+                        "approval_key": get_ws_token(self.user_id),
                         "custtype": "P",
                         "tr_type": "1",
                         "content-type": "utf-8",
@@ -248,7 +254,7 @@ class KISBroker(BrokerInterface):
                     {"price": float(resp_dict["매도호가1"]), "quantity": float(resp_dict["매도잔량1"])}
                 ],
             }
-            print(normalized_data["asks"])
+            #print(normalized_data["asks"])
             
             # 모든 호가 구독자에게 전달
             for callback in KISBroker._shared_orderbook_callbacks:

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { WS_URL } from '../Common/Constants';
+import { SecureAuthService } from '../Auth/AuthService';
 
 interface WebSocketContextType {
   subscribeOrderbook: (broker: string, symbol: string, callback: (data: any) => void) => () => void;
@@ -31,11 +32,33 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
       
       ws.onopen = () => {
         console.log(`✅ WebSocket connected: ${key}`);
+        // 연결 후 JWT 토큰 전송
+        const token = SecureAuthService.getAccessToken();
+        if (token) {
+          ws.send(JSON.stringify({ token }));
+          console.log(`🔑 Token sent for ${key}`);
+        } else {
+          console.error(`❌ No token available for ${key}`);
+          ws.close(1008, 'No authentication token');
+        }
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          
+          // 인증 응답 처리
+          if (data.type === 'authenticated') {
+            console.log(`🔐 Orderbook authenticated for ${key}`);
+            return;
+          }
+          
+          // 에러 응답 처리
+          if (data.type === 'error') {
+            console.error(`❌ Orderbook authentication error for ${key}:`, data.message);
+            ws.close(1008, 'Authentication failed');
+            return;
+          }
           
           // ping 메시지 무시
           if (data.type === 'ping') {
@@ -102,11 +125,33 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
       
       ws.onopen = () => {
         console.log(`✅ WebSocket connected: ${key}`);
+        // 연결 후 JWT 토큰 전송
+        const token = SecureAuthService.getAccessToken();
+        if (token) {
+          ws.send(JSON.stringify({ token }));
+          console.log(`🔑 Token sent for ${key}`);
+        } else {
+          console.error(`❌ No token available for ${key}`);
+          ws.close(1008, 'No authentication token');
+        }
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          
+          // 인증 응답 처리
+          if (data.type === 'authenticated') {
+            console.log(`🔐 Trade authenticated for ${key}`);
+            return;
+          }
+          
+          // 에러 응답 처리
+          if (data.type === 'error') {
+            console.error(`❌ Trade authentication error for ${key}:`, data.message);
+            ws.close(1008, 'Authentication failed');
+            return;
+          }
           
           if (data.type === 'ping') {
             return;

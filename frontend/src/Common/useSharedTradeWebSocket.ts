@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { WS_URL } from './Constants';
+import { SecureAuthService } from '../Auth/AuthService';
 
 interface TradeData {
   price: string;
@@ -49,11 +50,34 @@ export const useSharedTradeWebSocket = (broker: string, symbol: string): TradeDa
       
       ws.onopen = () => {
         console.log('✅ Shared WebSocket connected:', broker, symbol);
+        // 연결 후 JWT 토큰 전송
+        const token = SecureAuthService.getAccessToken();
+        if (token) {
+          ws.send(JSON.stringify({ token }));
+          console.log('🔑 Token sent for shared trade WebSocket');
+        } else {
+          console.error('❌ No token available for shared trade WebSocket');
+          ws.close(1008, 'No authentication token');
+        }
       };
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data) as TradeData;
+          const data = JSON.parse(event.data);
+          
+          // 인증 응답 처리
+          if (data.type === 'authenticated') {
+            console.log('🔐 Shared Trade authenticated');
+            return;
+          }
+          
+          // 에러 응답 처리
+          if (data.type === 'error') {
+            console.error('❌ Shared Trade authentication error:', data.message);
+            ws.close(1008, 'Authentication failed');
+            return;
+          }
+          
           sharedState.data = data;
           // 모든 리스너에게 데이터 전달
           sharedState.listeners.forEach(l => l(data));

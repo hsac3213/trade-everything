@@ -30,9 +30,8 @@ from pprint import pprint
 # -> 라이브러리에서 자동으로 처리되는건가?
 
 class BinanceBroker(BrokerInterface):
-    def __init__(self, api_key: str = None, secret_key: str = None):
-        self.api_key = api_key
-        self.secret_key = secret_key
+    def __init__(self, user_id: str = None):
+        self.user_id = user_id
         self.ws = None
         self.ws_thread = None
         self.orderbook_callback = None
@@ -63,7 +62,7 @@ class BinanceBroker(BrokerInterface):
         """
         try:
             headers = {
-                "X-MBX-APIKEY": get_key(user_id)["API"],
+                "X-MBX-APIKEY": get_key(self.user_id)["API"],
             }
 
             params = {}
@@ -108,7 +107,7 @@ class BinanceBroker(BrokerInterface):
             url = WS_URL
             async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
                 params = {
-                    "apiKey": get_key(user_id)["API"],
+                    "apiKey": get_key(self.user_id)["API"],
                 }
                 payload = get_signed_payload_ws("session.logon", params)
                 await ws.send(json.dumps(payload))
@@ -169,7 +168,7 @@ class BinanceBroker(BrokerInterface):
             url = WS_URL
             async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
                 params = {
-                    "apiKey": get_key(user_id)["API"],
+                    "apiKey": get_key(self.user_id)["API"],
                 }
                 payload = get_signed_payload_ws("session.logon", params)
                 await ws.send(json.dumps(payload))
@@ -219,7 +218,7 @@ class BinanceBroker(BrokerInterface):
     def get_assets(self) -> List[Dict[str, Any]]:
         try:
             headers = {
-                "X-MBX-APIKEY": get_key(user_id)["API"],
+                "X-MBX-APIKEY": get_key(self.user_id)["API"],
             }
 
             params = {

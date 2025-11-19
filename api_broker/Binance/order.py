@@ -1,14 +1,13 @@
-from .common import API_URL, BINANCE_ED25519_API_KEY
-from .common import get_signed_payload_post
+from .common import API_URL, get_signed_payload_post, get_key
 from ..Common.Debug import func_name
 
 import requests
 from pprint import pprint
 
-def place_order(user, order):
+def place_order(user_id, order):
     try:
         headers = {
-            "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
+            "X-MBX-APIKEY": get_key(user_id)["API"],
         }
 
         params = {
@@ -55,11 +54,11 @@ def place_order(user, order):
         traceback.print_exc()
         return []
 
-def cancel_order(user, order):
+def cancel_order(user_id, order):
     try:
         # 미체결 주문 목록 조회
         headers = {
-            "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
+            "X-MBX-APIKEY": get_key(user_id)["API"],
         }
 
         params = {}
@@ -69,7 +68,7 @@ def cancel_order(user, order):
         resp = requests.get(url, headers=headers, params=payload, timeout=10)
         resp_json = resp.json()
 
-        orders: List[NormalizedOrder] = []
+        orders = []
         for order in resp_json:
             orders.append({
                 "order_id": order["orderId"],
@@ -84,7 +83,7 @@ def cancel_order(user, order):
         return orders
     
         headers = {
-            "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
+            "X-MBX-APIKEY": get_key(self.user_id)["API"],
         }
 
         params = {
@@ -127,10 +126,10 @@ def cancel_order(user, order):
         traceback.print_exc()
         return []
     
-def cancel_all_orders(user, order):
+def cancel_all_orders(user_id, order):
     try:
         headers = {
-            "X-MBX-APIKEY": BINANCE_ED25519_API_KEY,
+            "X-MBX-APIKEY": get_key(user_id)["API"],
         }
 
         params = {

@@ -52,7 +52,7 @@ async def test(current_user: dict = Depends(get_current_user)):
 @app.post("/place_order/{broker_name}")
 async def place_order(broker_name: str, order: dict, current_user: dict = Depends(get_current_user)):
     try:
-        broker = BrokerFactory.create_broker(broker_name)
+        broker = BrokerFactory.create_broker(broker_name, current_user["user_id"])
         result = broker.place_order(order)
 
         if result["result"] == "success":
@@ -74,7 +74,7 @@ async def place_order(broker_name: str, order: dict, current_user: dict = Depend
 @app.post("/cancel_order/{broker_name}")
 async def cancel_order(broker_name: str, order: dict, current_user: dict = Depends(get_current_user)):
     try:
-        broker = BrokerFactory.create_broker(broker_name)
+        broker = BrokerFactory.create_broker(broker_name, current_user["user_id"])
         result = broker.cancel_order(order)
 
         if result["result"] == "success":
@@ -97,7 +97,7 @@ async def cancel_order(broker_name: str, order: dict, current_user: dict = Depen
 @app.post("/cancel_all_orders/{broker_name}")
 async def cancel_all_orders(broker_name: str, current_user: dict = Depends(get_current_user)):
     try:
-        broker = BrokerFactory.create_broker(broker_name)
+        broker = BrokerFactory.create_broker(broker_name, current_user["user_id"])
         result = broker.cancel_all_orders()
 
         if result["result"] == "success":
@@ -120,8 +120,10 @@ async def cancel_all_orders(broker_name: str, current_user: dict = Depends(get_c
 @app.get("/orders/{broker_name}")
 async def get_orders(broker_name: str, current_user: dict = Depends(get_current_user)):
     try:
-        broker = BrokerFactory.create_broker(broker_name)
+        broker = BrokerFactory.create_broker(broker_name, current_user["user_id"])
         orders = broker.get_orders()
+        print("[ orders ]")
+        print(orders)
         return {
             "message": "success",
             "broker": broker_name,
@@ -145,20 +147,53 @@ async def websocket_userdata(
     is_connected = True
     
     try:
-        auth_message = await ws.receive_json()
-        token = auth_message.get("token")
-        user = await get_user_from_token(token)
+        # 타임아웃과 함께 인증 메시지 수신
+        auth_message = await asyncio.wait_for(
+            ws.receive_json(),
+            timeout=10.0
+        )
         
-        broker = BrokerFactory.create_broker(broker_name)
+        token = auth_message.get("token")
+        if not token:
+            await ws.send_json({
+                "type": "error",
+                "message": "Token is required"
+            })
+            await ws.close(code=1008)
+            return
+        
+        # 클라이언트 정보 추출 (핑거프린트 검증용)
+        client_ip = ws.client.host if ws.client else "unknown"
+        user_agent = ws.headers.get("user-agent", "")
+        
+        # 사용자 인증 (핑거프린트 검증 포함)
+        try:
+            user = await get_user_from_token(token, client_ip, user_agent)
+        except Exception as e:
+            await ws.send_json({
+                "type": "error",
+                "message": "Authentication failed"
+            })
+            await ws.close(code=1008)
+            return
+        
+        # 인증 성공 알림
+        await ws.send_json({
+            "type": "authenticated",
+            "user_id": user["user_id"]
+        })
+        
+        broker = BrokerFactory.create_broker(broker_name, user["user_id"])
         
         async def send_callback(data: dict):
-            print("[ zzz ]")
-            print(data)
             nonlocal is_connected
             if not is_connected:
                 raise asyncio.CancelledError("Client disconnected")
             try:
-                await ws.send_json(data)
+                await ws.send_json({
+                    "type": "userdata",
+                    "data": data
+                })
             except WebSocketDisconnect:
                 is_connected = False
                 raise asyncio.CancelledError("Client disconnected")
@@ -171,13 +206,33 @@ async def websocket_userdata(
         )
         await subscription_task
     
+    except asyncio.TimeoutError:
+        print(f"⏱️ Authentication timeout: {broker_name}")
+        try:
+            await ws.send_json({
+                "type": "error",
+                "message": "Authentication timeout"
+            })
+        except:
+            pass
+        try:
+            await ws.close(code=1008)
+        except:
+            pass
     except WebSocketDisconnect:
         is_connected = False
     except asyncio.CancelledError:
         is_connected = False
     except Exception as e:
         is_connected = False
-        print(f"Userdata WebSocket error: {e}")
+        print(f"❌ Userdata WebSocket error: {e}")
+        try:
+            await ws.send_json({
+                "type": "error",
+                "message": "Internal server error"
+            })
+        except:
+            pass
     finally:
         is_connected = False
         if subscription_task and not subscription_task.done():
@@ -249,7 +304,43 @@ async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
     is_connected = True
     
     try:
-        broker = BrokerFactory.create_broker(broker_name)
+        # 타임아웃과 함께 인증 메시지 수신
+        auth_message = await asyncio.wait_for(
+            ws.receive_json(),
+            timeout=10.0
+        )
+        
+        token = auth_message.get("token")
+        if not token:
+            await ws.send_json({
+                "type": "error",
+                "message": "Token is required"
+            })
+            await ws.close(code=1008)
+            return
+        
+        # 클라이언트 정보 추출 (핑거프린트 검증용)
+        client_ip = ws.client.host if ws.client else "unknown"
+        user_agent = ws.headers.get("user-agent", "")
+        
+        # 사용자 인증 (핑거프린트 검증 포함)
+        try:
+            user = await get_user_from_token(token, client_ip, user_agent)
+        except Exception as e:
+            await ws.send_json({
+                "type": "error",
+                "message": "Authentication failed"
+            })
+            await ws.close(code=1008)
+            return
+        
+        # 인증 성공 알림
+        await ws.send_json({
+            "type": "authenticated",
+            "user_id": user["user_id"]
+        })
+        
+        broker = BrokerFactory.create_broker(broker_name, user["user_id"])
         
         async def send_callback(data: dict):
             nonlocal is_connected
@@ -269,6 +360,19 @@ async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
         )
         await subscription_task
     
+    except asyncio.TimeoutError:
+        print(f"⏱️ Orderbook authentication timeout: {broker_name}/{symbol}")
+        try:
+            await ws.send_json({
+                "type": "error",
+                "message": "Authentication timeout"
+            })
+        except:
+            pass
+        try:
+            await ws.close(code=1008)
+        except:
+            pass
     except WebSocketDisconnect:
         is_connected = False
     except asyncio.CancelledError:
@@ -276,6 +380,13 @@ async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
     except Exception as e:
         is_connected = False
         print(f"❌ Orderbook WebSocket error: {e}")
+        try:
+            await ws.send_json({
+                "type": "error",
+                "message": "Internal server error"
+            })
+        except:
+            pass
     finally:
         is_connected = False
         if subscription_task and not subscription_task.done():
@@ -296,7 +407,43 @@ async def websocket_trade(ws: WebSocket, broker_name: str, symbol: str):
     is_connected = True
     
     try:
-        broker = BrokerFactory.create_broker(broker_name)
+        # 타임아웃과 함께 인증 메시지 수신
+        auth_message = await asyncio.wait_for(
+            ws.receive_json(),
+            timeout=10.0
+        )
+        
+        token = auth_message.get("token")
+        if not token:
+            await ws.send_json({
+                "type": "error",
+                "message": "Token is required"
+            })
+            await ws.close(code=1008)
+            return
+        
+        # 클라이언트 정보 추출 (핑거프린트 검증용)
+        client_ip = ws.client.host if ws.client else "unknown"
+        user_agent = ws.headers.get("user-agent", "")
+        
+        # 사용자 인증 (핑거프린트 검증 포함)
+        try:
+            user = await get_user_from_token(token, client_ip, user_agent)
+        except Exception as e:
+            await ws.send_json({
+                "type": "error",
+                "message": "Authentication failed"
+            })
+            await ws.close(code=1008)
+            return
+        
+        # 인증 성공 알림
+        await ws.send_json({
+            "type": "authenticated",
+            "user_id": user["user_id"]
+        })
+        
+        broker = BrokerFactory.create_broker(broker_name, user["user_id"])
         
         async def send_callback(data: dict):
             nonlocal is_connected
@@ -316,6 +463,19 @@ async def websocket_trade(ws: WebSocket, broker_name: str, symbol: str):
         )
         await subscription_task
     
+    except asyncio.TimeoutError:
+        print(f"⏱️ Trade authentication timeout: {broker_name}/{symbol}")
+        try:
+            await ws.send_json({
+                "type": "error",
+                "message": "Authentication timeout"
+            })
+        except:
+            pass
+        try:
+            await ws.close(code=1008)
+        except:
+            pass
     except WebSocketDisconnect:
         is_connected = False
     except asyncio.CancelledError:
@@ -323,6 +483,13 @@ async def websocket_trade(ws: WebSocket, broker_name: str, symbol: str):
     except Exception as e:
         is_connected = False
         print(f"❌ Trade WebSocket error: {e}")
+        try:
+            await ws.send_json({
+                "type": "error",
+                "message": "Internal server error"
+            })
+        except:
+            pass
     finally:
         is_connected = False
         if subscription_task and not subscription_task.done():
@@ -410,7 +577,7 @@ async def websocket_proxy(ws: WebSocket):
 def main():
     print(f"Starting {SERVER_NAME}...")
     
-    #uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="info")
 
 if __name__ == "__main__":
     main()
