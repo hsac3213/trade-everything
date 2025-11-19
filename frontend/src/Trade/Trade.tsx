@@ -21,11 +21,8 @@ const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol, sel
   console.log(`📊 [Trade.tsx] ChartPlaceholder rendering with broker: ${broker}, symbol: ${symbol}`);
   
   const timeframes = [
-    //{ value: '1s', label: '1s' },
-    //{ value: '1m', label: '1m' },
     { value: '1H', label: '1h' },
     { value: '1D', label: '1d' },
-    //{ value: '1W', label: '1w' },
   ];
 
   return (
@@ -107,8 +104,9 @@ const Trade: React.FC = () => {
   const getDefaultSymbol = (exchangeName: string): string => {
     switch (exchangeName) {
       case 'Binance':
+        return 'BTCUSDT';
       case 'KIS':
-        return '005930';
+        return 'NVDA';
       default:
         return 'Unknown';
     }

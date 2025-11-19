@@ -25,9 +25,9 @@ class BrokerInterface(ABC):
         pass
     
     @abstractmethod
-    async def subscribe_orderbook_async(self, symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+    async def subscribe_orderbook_async(self, user_id: str, symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         pass
 
     @abstractmethod
-    async def subscribe_trade_price_async(self, symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+    async def subscribe_trade_price_async(self, user_id: str, symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         pass

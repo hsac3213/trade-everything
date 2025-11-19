@@ -66,7 +66,7 @@ class BinanceBroker(BrokerInterface):
             }
 
             params = {}
-            payload = get_signed_payload_post(params)
+            payload = get_signed_payload_post(self.user_id, params)
 
             url = API_URL + f"/api/v3/openOrders"
             resp = requests.get(url, headers=headers, params=payload, timeout=10)
@@ -109,7 +109,7 @@ class BinanceBroker(BrokerInterface):
                 params = {
                     "apiKey": get_key(self.user_id)["API"],
                 }
-                payload = get_signed_payload_ws("session.logon", params)
+                payload = get_signed_payload_ws(self.user_id, "session.logon", params)
                 await ws.send(json.dumps(payload))
                 resp = json.loads(await ws.recv())
 
@@ -170,7 +170,7 @@ class BinanceBroker(BrokerInterface):
                 params = {
                     "apiKey": get_key(self.user_id)["API"],
                 }
-                payload = get_signed_payload_ws("session.logon", params)
+                payload = get_signed_payload_ws(self.user_id, "session.logon", params)
                 await ws.send(json.dumps(payload))
                 resp = json.loads(await ws.recv())
 
@@ -381,19 +381,19 @@ class BinanceBroker(BrokerInterface):
             traceback.print_exc()
             return []
     
-    async def subscribe_orderbook_async(self, crypto_pair: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+    async def subscribe_orderbook_async(self, user_id: str, symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         try:
             url = WSS_URL + "/ws"
             async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
                 payload = {
                     "method": "SUBSCRIBE",
                     "params": [
-                        f"{crypto_pair}@depth20@100ms"
+                        f"{symbol}@depth20@100ms"
                     ],
                     "id": 1
                 }
                 await ws.send(json.dumps(payload))
-                print(f"✅ Subscribed to Binance {crypto_pair} orderbook")
+                print(f"✅ Subscribed to Binance {symbol} orderbook")
 
                 while True:
                     try:
@@ -401,7 +401,7 @@ class BinanceBroker(BrokerInterface):
                         
                         if "bids" in resp and "asks" in resp:
                             normalized_data = {
-                                "symbol": crypto_pair,
+                                "symbol": symbol,
                                 "bids": [
                                     {"price": float(bid[0]), "quantity": float(bid[1])}
                                     for bid in resp['bids']
@@ -436,7 +436,7 @@ class BinanceBroker(BrokerInterface):
             traceback.print_exc()
             print(traceback.format_exc())
 
-    async def subscribe_trade_price_async(self, crypto_pair: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+    async def subscribe_trade_price_async(self, user_id: str, symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         url = WSS_URL + "/ws"
         
         try:
@@ -444,12 +444,12 @@ class BinanceBroker(BrokerInterface):
                 payload = {
                     "method": "SUBSCRIBE",
                     "params": [
-                        f"{crypto_pair}@trade"
+                        f"{symbol}@trade"
                     ],
                     "id": 1
                 }
                 await ws.send(json.dumps(payload))
-                print(f"✅ Subscribed to Binance {crypto_pair} trade")
+                print(f"✅ Subscribed to Binance {symbol} trade")
 
                 while True:
                     try:

@@ -1,6 +1,7 @@
 from ..BrokerCommon.BrokerFactory import BrokerFactory
 from ..Common.TokenManager import TokenManager
 from .auth_dependency import get_current_user, get_user_from_token
+from ..Common.Debug import *
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -297,7 +298,7 @@ def get_candle(broker_name: str, symbol: str, interval: str, start_time: str):
 @app.websocket("/ws/orderbook/{broker_name}/{symbol}")
 async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
     await ws.accept()
-    print(f"✅ Orderbook connected: {broker_name}/{symbol}")
+    Info(f"[ {broker_name}/{symbol} ]")
     
     broker = None
     subscription_task = None
@@ -339,15 +340,17 @@ async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
             "type": "authenticated",
             "user_id": user["user_id"]
         })
+        user_id = user["user_id"]
         
-        broker = BrokerFactory.create_broker(broker_name, user["user_id"])
+        broker = BrokerFactory.create_broker(broker_name, user_id)
         
         async def send_callback(data: dict):
             nonlocal is_connected
             if not is_connected:
                 raise asyncio.CancelledError("Client disconnected")
             try:
-                await ws.send_json(data)
+                if data["symbol"].lower() == symbol.lower():
+                    await ws.send_json(data)
             except WebSocketDisconnect:
                 is_connected = False
                 raise asyncio.CancelledError("Client disconnected")
@@ -356,12 +359,12 @@ async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
                 raise asyncio.CancelledError(f"Send error: {e}")
         
         subscription_task = asyncio.create_task(
-            broker.subscribe_orderbook_async(symbol, send_callback)
+            broker.subscribe_orderbook_async(user_id, symbol, send_callback)
         )
         await subscription_task
     
     except asyncio.TimeoutError:
-        print(f"⏱️ Orderbook authentication timeout: {broker_name}/{symbol}")
+        Error(f"Orderbook authentication timeout: {broker_name}/{symbol}")
         try:
             await ws.send_json({
                 "type": "error",
@@ -379,7 +382,7 @@ async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
         is_connected = False
     except Exception as e:
         is_connected = False
-        print(f"❌ Orderbook WebSocket error: {e}")
+        Error(f"Orderbook WS: {e}")
         try:
             await ws.send_json({
                 "type": "error",
@@ -395,12 +398,12 @@ async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
                 await subscription_task
             except (asyncio.CancelledError, Exception):
                 pass
-        print(f"🔌 Orderbook closed: {broker_name}/{symbol}")
+        Info(f"[ OrderBook WS Closed {broker_name}/{symbol} ]")
+
 
 @app.websocket("/ws/trade/{broker_name}/{symbol}")
 async def websocket_trade(ws: WebSocket, broker_name: str, symbol: str):
     await ws.accept()
-    print(f"✅ Trade connected: {broker_name}/{symbol}")
     
     broker = None
     subscription_task = None
@@ -442,6 +445,7 @@ async def websocket_trade(ws: WebSocket, broker_name: str, symbol: str):
             "type": "authenticated",
             "user_id": user["user_id"]
         })
+        user_id = user["user_id"]
         
         broker = BrokerFactory.create_broker(broker_name, user["user_id"])
         
@@ -450,7 +454,8 @@ async def websocket_trade(ws: WebSocket, broker_name: str, symbol: str):
             if not is_connected:
                 raise asyncio.CancelledError("Client disconnected")
             try:
-                await ws.send_json(data)
+                if data["symbol"].lower() == symbol.lower():
+                    await ws.send_json(data)
             except WebSocketDisconnect:
                 is_connected = False
                 raise asyncio.CancelledError("Client disconnected")
@@ -459,7 +464,7 @@ async def websocket_trade(ws: WebSocket, broker_name: str, symbol: str):
                 raise asyncio.CancelledError(f"Send error: {e}")
         
         subscription_task = asyncio.create_task(
-            broker.subscribe_trade_price_async(symbol, send_callback)
+            broker.subscribe_trade_price_async(user_id, symbol, send_callback)
         )
         await subscription_task
     

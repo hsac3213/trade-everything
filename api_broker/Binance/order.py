@@ -19,7 +19,7 @@ def place_order(user_id, order):
             "price": str(order["price"]),
             "quantity": str(order["quantity"]),
         }
-        payload = get_signed_payload_post(params)
+        payload = get_signed_payload_post(user_id, params)
 
         url = API_URL + f"/api/v3/order"
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
@@ -62,7 +62,7 @@ def cancel_order(user_id, order):
         }
 
         params = {}
-        payload = get_signed_payload_post(params)
+        payload = get_signed_payload_post(user_id, params)
 
         url = API_URL + f"/api/v3/openOrders"
         resp = requests.get(url, headers=headers, params=payload, timeout=10)
@@ -90,7 +90,7 @@ def cancel_order(user_id, order):
             "symbol": str(order["symbol"]).upper(),
             "orderId": order["order_id"],
         }
-        payload = get_signed_payload_post(params)
+        payload = get_signed_payload_post(user_id, params)
 
         url = API_URL + f"/api/v3/order"
         resp = requests.delete(url, headers=headers, data=payload, timeout=10)
@@ -135,7 +135,7 @@ def cancel_all_orders(user_id, order):
         params = {
             "symbol": str(order["symbol"]).upper(),
         }
-        payload = get_signed_payload_post(params)
+        payload = get_signed_payload_post(user_id, params)
 
         url = API_URL + f"/api/v3/openOrders"
         resp = requests.delete(url, headers=headers, data=payload, timeout=10)

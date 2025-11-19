@@ -89,8 +89,10 @@ def signing(input):
 
 # https://developers.binance.com/docs/binance-spot-api-docs/websocket-api/request-security
 def get_signed_payload_ws(user_id, method, params):
-    private_key = ""
-    private_key = load_pem_private_key(data=get_key(user_id)["Private"], password=None)
+    private_key_str = get_key(user_id)["Private"]
+
+    private_key_pem = private_key_str.replace('\\n', '\n').encode('utf-8')
+    private_key = load_pem_private_key(data=private_key_pem, password=None)
 
     timestamp = int(time.time() * 1000)
     params["timestamp"] = timestamp
@@ -111,8 +113,10 @@ def get_signed_payload_ws(user_id, method, params):
 
 # https://developers.binance.com/docs/binance-spot-api-docs/rest-api/request-security
 def get_signed_payload_post(user_id, params):
-    private_key = ""
-    private_key = load_pem_private_key(data=get_key(user_id)["Private"], password=None)
+    private_key_str = get_key(user_id)["Private"]
+
+    private_key_pem = private_key_str.replace('\\n', '\n').encode('utf-8')
+    private_key = load_pem_private_key(data=private_key_pem, password=None)
 
     params["recvWindow"] = "5000"
 

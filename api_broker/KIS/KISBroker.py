@@ -1,12 +1,17 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
 from .constants import API_URL, WS_URL, COLUMN_TO_KOR_DICT
 from .ws_token_manager import get_ws_token
+from ..Common.Debug import *
 from typing import List, Dict, Any, Callable, Awaitable
+from typing import TypedDict, Literal
 import websockets
 import json
 import asyncio
 import requests
 import pandas as pd
+import traceback
+from pprint import pprint
+import time
 
 # [ 종목 코드 파일 ]
 # 아래 파일은 업데이트될 가능성이 있음에 유의
@@ -17,21 +22,360 @@ KIS_TICKERS_PATH = "./KIS/NASMST.COD"
 # -> 오류 응답은 다음과 같음
 # {"header":{"tr_id":"(null)","tr_key":"","encrypt":"N"},"body":{"rt_cd":"9","msg_cd":"OPSP8996","msg1":"ALREADY IN USE appkey"}}
 
+# 2025-11-19(수) 기준 최대 41개 구독 가능
+# -> 한 웹소켓에서 구독해야 함에 유의!
+class KISWebSocket():
+    def __init__(self):
+        # 공유 웹소켓 task
+        self.ws_task: Any = None
+        # 공유 웹소켓
+        self.ws: Any = None
+        # 심볼(티커) 리스트
+        self.symbols = []
+        # 콜백 등록/삭제를 위한 lock
+        self.callbacks_lock = asyncio.Lock()
+        # 콜백 리스트
+        # -> 콜백 리스트가 비어있으면 웹소켓 close 해야 함!
+        self.orderbook_callbacks = []
+        self.trade_callbacks = []
+
 class KISBroker(BrokerInterface):
     # 클래스 레벨 공유 WebSocket 관리 (모든 인스턴스가 공유)
-    _shared_ws = None
-    _shared_ws_task = None
-    _shared_is_connected = False
-    _shared_lock = asyncio.Lock()
-    _shared_ticker_symbol = None
-    _shared_orderbook_callbacks = []  # 여러 구독자 지원
-    _shared_trade_callbacks = []      # 여러 구독자 지원
+
+    # 각 사용자(user_id)에게 할당된 웹소켓 관리
+    _user_lock: Dict[str, asyncio.Lock] = {}
+    _user_ws: Dict[str, KISWebSocket] = {}
     
     def __init__(self, user_id: str = None):
         self.user_id = user_id
 
-        print("[ KISBroker ]")
-        print(f"user_id : {user_id}")
+        #print("[ KISBroker ]")
+        #print(f"user_id : {user_id}")
+
+    @staticmethod
+    async def _ws_connect(user_id: str):
+        """웹소켓 연결(Backend <-> KIS)"""
+        if user_id == None:
+            Error("KIS invalid user_id.")
+            return
+
+        # Lock이 없는 경우 생성
+        if user_id not in KISBroker._user_lock:
+            KISBroker._user_lock[user_id] = asyncio.Lock()
+
+        async with KISBroker._user_lock[user_id]:
+            # 웹소켓 공유 정보 데이터가 없는 경우 생성
+            if user_id not in KISBroker._user_ws:
+                KISBroker._user_ws[user_id] = KISWebSocket()
+            # 웹소켓 연결이 없는 경우 생성
+            if KISBroker._user_ws[user_id].ws_task == None:
+                # ping_interval은 사용하지 않을 것을 권장하고 있음
+                # https://apiportal.koreainvestment.com/community/10000000-0000-0011-0000-000000000002/post/07f312e5-0bf3-4bbe-8179-1ffd7246b392
+                KISBroker._user_ws[user_id].ws = await websockets.connect(WS_URL, ping_interval=None)
+                KISBroker._user_ws[user_id].ws_task = asyncio.create_task(KISBroker._ws_loop(user_id))
+            else:
+                Info("Use existed ws.")
+    
+    @staticmethod
+    async def _ws_loop(user_id):
+        """웹소켓 루프(Backend <-> KIS)"""
+        try:
+            ws = KISBroker._user_ws[user_id].ws
+            while True:
+                try:
+                    resp = await ws.recv()
+                    await KISBroker._handle_ws_message(user_id, resp)
+                    
+                except asyncio.CancelledError:
+                    Error("KIS LOOP asyncio.CancelledError")
+                    print(KISBroker._user_ws[user_id].orderbook_callbacks)
+                    # raise 하면 웹소켓 연결이 끊어짐 
+                    #raise
+                except websockets.exceptions.ConnectionClosedError:
+                    Error("KIS LOOP websockets.exceptions.ConnectionClosedError")
+                    #break
+                except Exception as e:
+                    Info("KIS LOOP Exception")
+                    traceback.print_exc()
+                        
+        except asyncio.CancelledError:
+            Error("KIS asyncio.CancelledError")
+        except websockets.exceptions.ConnectionClosed:
+            Error("KIS websockets.exceptions.ConnectionClosed")
+        except websockets.exceptions.ConnectionClosedError:
+            Error("KIS websockets.exceptions.ConnectionClosedError")
+        except Exception as e:
+            Error("KIS Exception")
+            traceback.print_exc()
+        finally:
+            Error("KIS disconnected.")
+    
+    @staticmethod
+    async def _handle_ws_message(user_id: str, resp: str):
+        """웹소켓 메시지 핸들러(Backend <-> KIS)"""
+        # 핑 메시지 처리
+        if resp[0] not in ["0", "1"]:
+            try:
+                json_data = json.loads(resp)
+                if json_data.get("header", {}).get("tr_id") == "PINGPONG":
+                    await KISBroker._user_ws[user_id].ws.pong(resp)
+                    #Info("KIS Ping processed.")
+                else:
+                    pass
+                    #Info("KIS WS Message")
+                    #pprint(json_data)
+            except json.JSONDecodeError:
+                Error("KIS json.JSONDecodeError")
+                pass
+            return
+
+        # 데이터 메시지 - tr_id로 구분
+        meta_data = resp.split("|")
+        if len(meta_data) < 2:
+            return
+        
+        tr_id = meta_data[1]
+        
+        # 호가 데이터 처리(HDFSASP0)
+        if tr_id == "HDFSASP0":
+            await KISBroker._handle_orderbook(user_id, resp)
+        
+        # 체결가 데이터 처리(HDFSCNT0)
+        elif tr_id == "HDFSCNT0":
+            await KISBroker._handle_trade(user_id, resp)
+    
+    @staticmethod
+    async def _handle_orderbook(user_id: str, resp: str):
+        """호가 데이터 처리"""
+        try:
+            columns = [
+                "rsym",
+                "symb",
+                "zdiv",
+                "xymd",
+                "xhms",
+                "kymd",
+                "khms",
+                "bvol",
+                "avol",
+                "bdvl",
+                "advl",
+                "pbid1",
+                "pask1",
+                "vbid1",
+                "vask1",
+                "dbid1",
+                "dask1"
+            ]
+            
+            real_data = resp.split("|")[-1].split("^")
+            
+            if len(real_data) < len(columns):
+                return
+            
+            resp_dict = {COLUMN_TO_KOR_DICT[col]: value for col, value in zip(columns, real_data)}
+            
+            normalized_data = {
+                "symbol": resp_dict["종목코드"].replace("DNAS", ""),
+                "bids": [
+                    {"price": float(resp_dict["매수호가1"]), "quantity": float(resp_dict["매수잔량1"])}
+                ],
+                "asks": [
+                    {"price": float(resp_dict["매도호가1"]), "quantity": float(resp_dict["매도잔량1"])}
+                ],
+            }
+            #print(normalized_data["asks"])
+            
+            # 콜백 리스트 호출
+            async with KISBroker._user_ws[user_id].callbacks_lock:
+                # 안전한 원소 제거를 위하여 리스트 복사
+                callbacks_copy = KISBroker._user_ws[user_id].trade_callbacks[:]
+                for callback in callbacks_copy:
+                    try:
+                        await callback(normalized_data)
+                    except asyncio.CancelledError:
+                        # 연결 해제된 callback 제거
+                        try:
+                            if callback in KISBroker._user_ws[user_id].orderbook_callbacks:
+                                KISBroker._user_ws[user_id].orderbook_callbacks.remove(callback)
+                                break
+                        except:
+                            Error("Failed to remove callback.")
+                    except Exception as e:
+                        Error("KIS Exception")
+                        print(f"e : {e}")
+            
+        except Exception as e:
+            print(f"❌ Error parsing orderbook: {e}")
+    
+    @staticmethod
+    async def _handle_trade(user_id: str, resp: str):
+        """체결가 데이터 처리"""
+        try:
+            columns = [
+                "RSYM",
+                "SYMB",
+                "ZDIV",
+                "TYMD",
+                "XYMD",
+                "XHMS",
+                "KYMD",
+                "KHMS",
+                "OPEN",
+                "HIGH",
+                "LOW",
+                "LAST",
+                "SIGN",
+                "DIFF",
+                "RATE",
+                "PBID",
+                "PASK",
+                "VBID",
+                "VASK",
+                "EVOL",
+                "TVOL",
+                "TAMT",
+                "BIVL",
+                "ASVL",
+                "STRN",
+                "MTYP"
+            ]
+            
+            real_data = resp.split('|')[-1].split("^")
+            
+            if len(real_data) < len(columns):
+                return
+            
+            resp_dict = {COLUMN_TO_KOR_DICT[col]: value for col, value in zip(columns, real_data)}
+            
+            normalized_data = {
+                "symbol": resp_dict["종목코드"].replace("DNAS", ""),
+                "price": float(resp_dict["현재가"]) if resp_dict["현재가"] else 0.0,
+                "quantity": float(resp_dict["체결량"]) if resp_dict["체결량"] else 0.0,
+                "time": resp_dict["한국시간"],
+                "isBuyerMaker": True,
+                "timestamp": int(asyncio.get_event_loop().time() * 1000),
+            }
+            
+            # 콜백 리스트 호출
+            async with KISBroker._user_ws[user_id].callbacks_lock:
+                # 안전한 원소 제거를 위하여 리스트 복사
+                callbacks_copy = KISBroker._user_ws[user_id].trade_callbacks[:]
+                for callback in callbacks_copy:
+                    try:
+                        await callback(normalized_data)
+                    except asyncio.CancelledError:
+                        # 연결 해제된 callback 제거
+                        try:
+                            if callback in KISBroker._user_ws[user_id].trade_callbacks:
+                                KISBroker._user_ws[user_id].trade_callbacks.remove(callback)
+                                continue
+                        except:
+                            Error("Failed to remove callback.")
+                    except Exception as e:
+                        Error("KIS Exception")
+                        print(f"e : {e}")
+            
+        except Exception as e:
+            print(f"❌ Error parsing trade: {e}")
+    
+    async def subscribe_orderbook_async(self, user_id: str, ticker_symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+        """실시간 호가 구독(Frontend <-> Backend)"""
+        try:
+            ticker_symbol = "DNAS" + ticker_symbol.upper()
+            print(ticker_symbol)
+            # 웹소켓 연결
+            await KISBroker._ws_connect(user_id)
+
+            # 호가 구독
+            payload = {
+                "header": {
+                    "approval_key": get_ws_token(user_id),
+                    "custtype": "P",
+                    "tr_type": "1",
+                    "content-type": "utf-8",
+                },
+                "body": {
+                    "input": {
+                        "tr_id": "HDFSASP0",
+                        "tr_key": ticker_symbol,
+                    }
+                }
+            }
+            await KISBroker._user_ws[user_id].ws.send(json.dumps(payload))
+
+            # 호가 콜백 등록
+            async with KISBroker._user_ws[user_id].callbacks_lock:
+                KISBroker._user_ws[user_id].orderbook_callbacks.append(callback)
+
+            while True:
+                await asyncio.sleep(1.0)
+                
+        except asyncio.CancelledError:
+            Error("KIS asyncio.CancelledError")
+            raise
+        except Exception as e:
+            Info("KIS Exception")
+            print(f"e : {e}")
+            traceback.print_exc()
+        finally:
+            # 호가 콜백 제거
+            Info("Finally")
+            try:
+                async with KISBroker._user_ws[user_id].callbacks_lock:
+                    if callback in KISBroker._user_ws[user_id].orderbook_callbacks:
+                        KISBroker._user_ws[user_id].orderbook_callbacks.remove(callback)
+            except:
+                Error("Failed to remove callback.")
+
+    async def subscribe_trade_price_async(self, user_id: str, ticker_symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+        """실시간 체결가 구독(Frontend <-> Backend)"""
+        ticker_symbol = "DNAS" + ticker_symbol.upper()
+        try:
+            # 웹소켓 연결
+            await KISBroker._ws_connect(user_id)
+
+            # 체결가 구독
+            async with KISBroker._user_lock[user_id]:
+                payload = {
+                    "header": {
+                        "approval_key": get_ws_token(user_id),
+                        "custtype": "P",
+                        "tr_type": "1",
+                        "content-type": "utf-8",
+                    },
+                    "body": {
+                        "input": {
+                            "tr_id": "HDFSCNT0",
+                            "tr_key": ticker_symbol,
+                        }
+                    }
+                }
+                await KISBroker._user_ws[user_id].ws.send(json.dumps(payload))
+
+            # 체결가 콜백 등록
+            async with KISBroker._user_ws[user_id].callbacks_lock:
+                KISBroker._user_ws[user_id].trade_callbacks.append(callback)
+
+            while True:
+                await asyncio.sleep(1.0)
+                
+        except asyncio.CancelledError:
+            Error("KIS asyncio.CancelledError")
+            raise
+        except Exception as e:
+            Info("KIS Exception")
+            print(f"e : {e}")
+            traceback.print_exc()
+        finally:
+            # 체결가 콜백 제거
+            Info("Finally")
+            try:
+                async with KISBroker._user_ws[user_id].callbacks_lock:
+                    if callback in KISBroker._user_ws[user_id].trade_callbacks:
+                        KISBroker._user_ws[user_id].trade_callbacks.remove(callback)
+            except:
+                Error("Failed to remove callback.")
 
     def get_symbols(self) -> List[Dict[str, Any]]:
         try:
@@ -85,277 +429,3 @@ class KISBroker(BrokerInterface):
             'price': price,
             'status': 'pending'
         }
-    
-    async def _ensure_connection(self, ticker_symbol: str):
-        """WebSocket 연결 보장 (없으면 생성)"""
-        async with KISBroker._shared_lock:
-            if KISBroker._shared_is_connected and KISBroker._shared_ticker_symbol == ticker_symbol:
-                return
-            
-            # 기존 연결 정리
-            if KISBroker._shared_ws_task:
-                KISBroker._shared_ws_task.cancel()
-                try:
-                    await KISBroker._shared_ws_task
-                except asyncio.CancelledError:
-                    pass
-            
-            # 새 연결 시작
-            KISBroker._shared_ticker_symbol = ticker_symbol
-            KISBroker._shared_ws_task = asyncio.create_task(self._ws_loop(ticker_symbol))
-            
-            # 연결 대기
-            for _ in range(50):  # 5초 대기
-                if KISBroker._shared_is_connected:
-                    return
-                await asyncio.sleep(0.1)
-            
-            raise Exception("WebSocket connection timeout")
-    
-    async def _ws_loop(self, ticker_symbol: str):
-        """공유 WebSocket 루프"""
-        try:
-            url = WS_URL
-            async with websockets.connect(url, ping_interval=30) as ws:
-                KISBroker._shared_ws = ws
-                
-                # 호가 구독 (HDFSASP0)
-                payload = {
-                    "header": {
-                        "approval_key": get_ws_token(self.user_id),
-                        "custtype": "P",
-                        "tr_type": "1",
-                        "content-type": "utf-8",
-                    },
-                    "body": {
-                        "input": {
-                            "tr_id": "HDFSASP0",
-                            "tr_key": ticker_symbol,
-                        }
-                    }
-                }
-                await ws.send(json.dumps(payload))
-                
-                # 체결가 구독 (HDFSCNT0)
-                payload = {
-                    "header": {
-                        "approval_key": get_ws_token(self.user_id),
-                        "custtype": "P",
-                        "tr_type": "1",
-                        "content-type": "utf-8",
-                    },
-                    "body": {
-                        "input": {
-                            "tr_id": "HDFSCNT0",
-                            "tr_key": ticker_symbol,
-                        }
-                    }
-                }
-                await ws.send(json.dumps(payload))
-                
-                KISBroker._shared_is_connected = True
-                print(f"✅ KIS WebSocket connected: {ticker_symbol}")
-                
-                while True:
-                    try:
-                        resp = await ws.recv()
-                        await self._handle_message(resp, ticker_symbol)
-                        
-                    except asyncio.CancelledError:
-                        raise
-                    except websockets.exceptions.ConnectionClosedError:
-                        # WebSocket 연결 끊김 - 루프 종료
-                        print(f"⚠️ KIS WebSocket connection closed: {ticker_symbol}")
-                        break
-                    except Exception as e:
-                        print(f"❌ Error in message handler: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        
-        except asyncio.CancelledError:
-            pass
-        except websockets.exceptions.ConnectionClosed:
-            pass
-        except websockets.exceptions.ConnectionClosedError:
-            pass
-        except Exception as e:
-            print(f"❌ KIS WebSocket error: {e}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            KISBroker._shared_is_connected = False
-            KISBroker._shared_ws = None
-            print(f"🔌 KIS WebSocket disconnected: {ticker_symbol}")
-    
-    async def _handle_message(self, resp: str, ticker_symbol: str):
-        """메시지 타입별 라우팅"""
-        # PING-PONG 처리
-        if resp[0] not in ["0", "1"]:
-            try:
-                json_data = json.loads(resp)
-                if json_data.get("header", {}).get("tr_id") == "PINGPONG":
-                    await KISBroker._shared_ws.pong(resp)
-            except json.JSONDecodeError:
-                print("JSONDecodeError")
-                pass
-            return
-        
-        # 데이터 메시지 - tr_id로 구분
-        meta_data = resp.split("|")
-        if len(meta_data) < 2:
-            return
-        
-        tr_id = meta_data[1]
-        
-        # 호가 데이터 (HDFSASP0) - 모든 구독자에게 전달
-        if tr_id == "HDFSASP0" and KISBroker._shared_orderbook_callbacks:
-            await self._handle_orderbook(resp, ticker_symbol)
-        
-        # 체결가 데이터 (HDFSCNT0) - 모든 구독자에게 전달
-        elif tr_id == "HDFSCNT0" and KISBroker._shared_trade_callbacks:
-            await self._handle_trade(resp, ticker_symbol)
-    
-    async def _handle_orderbook(self, resp: str, ticker_symbol: str):
-        """호가 데이터 처리"""
-        try:
-            columns = [
-                "rsym",
-                "symb",
-                "zdiv",
-                "xymd",
-                "xhms",
-                "kymd",
-                "khms",
-                "bvol",
-                "avol",
-                "bdvl",
-                "advl",
-                "pbid1",
-                "pask1",
-                "vbid1",
-                "vask1",
-                "dbid1",
-                "dask1"
-            ]
-            
-            real_data = resp.split("|")[-1].split("^")
-            
-            if len(real_data) < len(columns):
-                return
-            
-            resp_dict = {COLUMN_TO_KOR_DICT[col]: value for col, value in zip(columns, real_data)}
-            
-            normalized_data = {
-                "symbol": ticker_symbol,
-                "bids": [
-                    {"price": float(resp_dict["매수호가1"]), "quantity": float(resp_dict["매수잔량1"])}
-                ],
-                "asks": [
-                    {"price": float(resp_dict["매도호가1"]), "quantity": float(resp_dict["매도잔량1"])}
-                ],
-            }
-            #print(normalized_data["asks"])
-            
-            # 모든 호가 구독자에게 전달
-            for callback in KISBroker._shared_orderbook_callbacks:
-                try:
-                    await callback(normalized_data)
-                except Exception as e:
-                    print(f"❌ Error in orderbook callback: {e}")
-            
-        except Exception as e:
-            print(f"❌ Error parsing orderbook: {e}")
-    
-    async def _handle_trade(self, resp: str, ticker_symbol: str):
-        """체결가 데이터 처리"""
-        try:
-            columns = [
-                "RSYM",
-                "SYMB",
-                "ZDIV",
-                "TYMD",
-                "XYMD",
-                "XHMS",
-                "KYMD",
-                "KHMS",
-                "OPEN",
-                "HIGH",
-                "LOW",
-                "LAST",
-                "SIGN",
-                "DIFF",
-                "RATE",
-                "PBID",
-                "PASK",
-                "VBID",
-                "VASK",
-                "EVOL",
-                "TVOL",
-                "TAMT",
-                "BIVL",
-                "ASVL",
-                "STRN",
-                "MTYP"
-            ]
-            
-            real_data = resp.split('|')[-1].split("^")
-            
-            if len(real_data) < len(columns):
-                return
-            
-            resp_dict = {COLUMN_TO_KOR_DICT[col]: value for col, value in zip(columns, real_data)}
-            
-            normalized_data = {
-                "symbol": resp_dict["종목코드"],
-                "price": float(resp_dict["현재가"]) if resp_dict["현재가"] else 0.0,
-                "quantity": float(resp_dict["체결량"]) if resp_dict["체결량"] else 0.0,
-                "time": resp_dict["한국시간"],
-                "isBuyerMaker": True,
-                "timestamp": int(asyncio.get_event_loop().time() * 1000),
-            }
-            
-            # 모든 체결가 구독자에게 전달
-            for callback in KISBroker._shared_trade_callbacks:
-                try:
-                    await callback(normalized_data)
-                except Exception as e:
-                    print(f"❌ Error in trade callback: {e}")
-            
-        except Exception as e:
-            print(f"❌ Error parsing trade: {e}")
-    
-    async def subscribe_orderbook_async(self, ticker_symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
-        """호가 구독 (공유 WebSocket 사용)"""
-        try:
-            # 콜백 등록
-            KISBroker._shared_orderbook_callbacks.append(callback)
-            await self._ensure_connection("DNASNVDA")
-            
-            # 연결이 끊길 때까지 대기
-            while KISBroker._shared_is_connected:
-                await asyncio.sleep(1)
-                
-        except asyncio.CancelledError:
-            pass
-        finally:
-            # 콜백 제거
-            if callback in KISBroker._shared_orderbook_callbacks:
-                KISBroker._shared_orderbook_callbacks.remove(callback)
-
-    async def subscribe_trade_price_async(self, ticker_symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
-        """체결가 구독 (공유 WebSocket 사용)"""
-        try:
-            # 콜백 등록
-            KISBroker._shared_trade_callbacks.append(callback)
-            await self._ensure_connection("DNASNVDA")
-            
-            # 연결이 끊길 때까지 대기
-            while KISBroker._shared_is_connected:
-                await asyncio.sleep(1)
-                
-        except asyncio.CancelledError:
-            pass
-        finally:
-            # 콜백 제거
-            if callback in KISBroker._shared_trade_callbacks:
-                KISBroker._shared_trade_callbacks.remove(callback)

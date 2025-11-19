@@ -49,8 +49,8 @@ def get_ws_token(user_id):
 
     # 캐시된 웹소켓 토큰이 유효한지 검사
     if redis_manager.redis_client.exists(key) > 0:
-        print("Use cached ws token.")
-        print(redis_manager.redis_client.get(name=key))
+        #print("Use cached ws token.")
+        #print(redis_manager.redis_client.get(name=key))
         return redis_manager.redis_client.get(name=key)
 
     conn = get_db_conn()
@@ -84,8 +84,6 @@ def get_ws_token(user_id):
     }
     headers = { 'content-type': 'application/json' }
     resp = requests.post(API_URL + '/oauth2/Approval', headers=headers, data=json.dumps(json_req))
-
-    print(json_req)
 
     if 'approval_key' in resp.json():
         approval_key = resp.json()['approval_key']

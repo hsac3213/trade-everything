@@ -33,11 +33,13 @@ DB_ROOT_CA_PATH = os.environ.get("DB_ROOT_CA_PATH")
 DB_CERT_PATH = os.environ.get("DB_CERT_PATH")
 DB_CERT_KEY_PATH = os.environ.get("DB_CERT_KEY_PATH")
 
+"""
 print(f"DB_HOST : {DB_HOST}")
 print(f"DB_ID : {DB_ID}")
 print(f"DB_ROOT_CA_PATH : {DB_ROOT_CA_PATH}")
 print(f"DB_CERT_PATH : {DB_CERT_PATH}")
 print(f"DB_CERT_KEY_PATH : {DB_CERT_KEY_PATH}")
+"""
 
 # 라우터 생성
 router = APIRouter(prefix="/auth", tags=["Authentication"])
