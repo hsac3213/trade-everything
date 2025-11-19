@@ -1,9 +1,22 @@
+from ..Server.redis_manager import RedisManager
+from .constants import *
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
 import os
 import json
 import requests
-from datetime import datetime, timedelta
 
-from .constants import *
+# DB 서버 관련 환경변수 읽기
+DB_HOST = os.environ.get("DB_HOST")
+DB_ID = os.environ.get("DB_ID")
+DB_NAME = "tedb"
+DB_ROOT_CA_PATH = os.environ.get("DB_ROOT_CA_PATH")
+DB_CERT_PATH = os.environ.get("DB_CERT_PATH")
+DB_CERT_KEY_PATH = os.environ.get("DB_CERT_KEY_PATH")
+
+from datetime import datetime, timedelta
 
 WS_TOKEN_DIR = "./Token"
 WS_TOKEN_PATH = WS_TOKEN_DIR + "/KIS_WS_TOKEN.txt"
@@ -17,67 +30,68 @@ ws_token_dict = {
 
 }
 
-def get_ws_token():
-    global ws_token_dict
+redis_manager = RedisManager()
 
-    json_token = {}
-    approval_key = ""
+def get_db_conn():
+    return psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_ID,
+        cursor_factory=RealDictCursor,
+        sslmode='verify-full',
+        sslrootcert=DB_ROOT_CA_PATH,
+        sslcert=DB_CERT_PATH,       
+        sslkey=DB_CERT_KEY_PATH,
+    )
 
-    # 메모리 상의 웹소켓 토큰의 유효 기간을 검사
-    if 'ws_token_token_expired' in ws_token_dict:
-        token_time = datetime.strptime(ws_token_dict['ws_token_token_expired'], '%Y-%m-%d %H:%M:%S')
-        now = datetime.now()
+def get_ws_token(user_id):
+    key = f"{user_id}_KIS_WS_Token"
 
-        if now < token_time:
-            #print('Current token in memory is available. Return it.')
-            approval_key = ws_token_dict['approval_key']
-            return approval_key
+    # 캐시된 웹소켓 토큰이 유효한지 검사
+    if redis_manager.redis_client.exists(key) > 0:
+        print("Use cached ws token.")
+        print(redis_manager.redis_client.get(name=key))
+        return redis_manager.redis_client.get(name=key)
 
-    # 토큰 디렉터리가 존재하지 않으면 토큰 디렉터리 생성
-    if not os.path.exists(WS_TOKEN_DIR):
-        os.makedirs(WS_TOKEN_DIR, exist_ok=True)
+    conn = get_db_conn()
+    cursor = conn.cursor()
+
+    app_key = ""
+    sec_key = ""
     
-    # 파일로 저장된 웹소켓 토큰의 유효 기간을 검사
-    try:
-        with open(WS_TOKEN_PATH, 'r', encoding='utf-8') as f:
-            json_token = json.load(f)
+    cursor.execute(
+        "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'KIS' and token_name = %s",
+        (user_id, "APP",)
+    )
+    token = cursor.fetchone()
+    if token != None:
+        app_key = token["token"]
 
-            token_time = datetime.strptime(json_token['ws_token_token_expired'], '%Y-%m-%d %H:%M:%S')
-            now = datetime.now()
-
-            if now < token_time:
-                print('Current token in file is available. Return it.')
-                ws_token_dict = json_token
-                approval_key = ws_token_dict['approval_key']
-                return approval_key
-    except FileNotFoundError:
-        print(f'Failed to open file: {WS_TOKEN_PATH} for reading.')
+    cursor.execute(
+        "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'KIS' and token_name = %s",
+        (user_id, "SEC",)
+    )
+    token = cursor.fetchone()
+    if token != None:
+        sec_key = token["token"]
 
     # KIS API 서버에 새로운 웹소켓 토큰을 요청
-    print('Current token in file is expired. Request new token.')
+    print('Current ws token in file is expired. Request new ws token.')
     json_req = {
         'grant_type': 'client_credentials',
-        'appkey': APP_KEY,
-        'secretkey': SEC_KEY,
+        'appkey': app_key,
+        'secretkey': sec_key,
     }
     headers = { 'content-type': 'application/json' }
     resp = requests.post(API_URL + '/oauth2/Approval', headers=headers, data=json.dumps(json_req))
 
     if 'approval_key' in resp.json():
-        print(resp.text)
         approval_key = resp.json()['approval_key']
-        try:
-            with open(WS_TOKEN_PATH, 'w', encoding='utf-8') as file:
-                # 만료 시간 지정
-                json_token = resp.json()
-                expired_time = datetime.now() + timedelta(hours=24)
-                json_token['ws_token_token_expired'] = expired_time.strftime('%Y-%m-%d %H:%M:%S')
-                ws_token_dict = json_token
-                json.dump(json_token, file, ensure_ascii=False, indent=4)
-        except FileNotFoundError:
-            print(f'Failed to open file: {WS_TOKEN_PATH} for writing.')
+        redis_manager.redis_client.set(name=key, value=approval_key, ex=60 * 60 * 23)
+
+        return approval_key
     else:
         print('Invalid Response:')
         print(resp.text)
     
-    return approval_key
+    return None

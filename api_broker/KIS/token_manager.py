@@ -16,13 +16,6 @@ DB_ROOT_CA_PATH = os.environ.get("DB_ROOT_CA_PATH")
 DB_CERT_PATH = os.environ.get("DB_CERT_PATH")
 DB_CERT_KEY_PATH = os.environ.get("DB_CERT_KEY_PATH")
 
-# 환경변수로부터 API 키와 계좌 정보를 가져옴
-#APP_KEY = os.environ.get("KIS_APP")
-#SEC_KEY = os.environ.get("KIS_SEC")
-
-#ACCOUNT_NUMBER_0 = os.environ.get("ACCOUNT_NUMBER_0")
-#ACCOUNT_NUMBER_1 = os.environ.get("ACCOUNT_NUMBER_1")
-
 redis_manager = RedisManager()
 
 def get_db_conn():
@@ -39,6 +32,11 @@ def get_db_conn():
 
 def get_access_token(user_id):
     key = f"{user_id}_KIS_Token"
+
+    # 캐시된 토큰이 유효한지 검사
+    if redis_manager.redis_client.exists(key) > 0:
+        print("Use cached access token.")
+        return redis_manager.redis_client.get(name=key)
 
     conn = get_db_conn()
     cursor = conn.cursor()
@@ -61,11 +59,6 @@ def get_access_token(user_id):
     token = cursor.fetchone()
     if token != None:
         sec_key = token["token"]
-
-    # 캐시된 토큰이 유효한지 검사
-    if redis_manager.redis_client.exists(key) > 0:
-        print("Use cached access token.")
-        return redis_manager.redis_client.get(name=key)
 
     # KIS API 서버에 새로운 토큰을 요청
     print('Current access token in cache is expired. Request new access token.')
