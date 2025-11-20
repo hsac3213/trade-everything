@@ -1,0 +1,43 @@
+# Third-Party Notices
+
+This project includes dependencies that are licensed under various open source licenses.
+
+## Apache-2.0 Licensed Dependencies (15 packages)
+- @eslint/config-array, @eslint/config-helpers, @eslint/core, @eslint/object-schema, @eslint/plugin-kit
+- @humanfs/core, @humanfs/node, @humanwhocodes/module-importer, @humanwhocodes/retry
+- baseline-browser-mapping, detect-libc
+- eslint-visitor-keys (v3 & v4)
+- lightweight-charts
+- typescript
+
+Apache License 2.0 requires preservation of copyright and license notices.
+Full license texts are available in the respective package directories.
+
+## MPL-2.0 Licensed Dependencies (3 packages)
+- lightningcss
+- lightningcss-linux-x64-gnu
+- lightningcss-linux-x64-musl
+
+Mozilla Public License 2.0 is a weak copyleft license.
+We use these libraries as-is without modifications.
+Full license texts are available in the respective package directories.
+
+## MIT and Other Permissive Licenses (174+ packages)
+The majority of dependencies use MIT, ISC, BSD-2-Clause, BSD-3-Clause, or 0BSD licenses,
+which allow commercial use with minimal restrictions.
+
+For a complete list of all third-party licenses, please see:
+- THIRD_PARTY_LICENSES.md (detailed list)
+- Individual package directories in node_modules/
+
+## Special Notices
+
+### Python-2.0 License
+- argparse: Uses Python-2.0 license (permissive, GPL-compatible)
+
+### CC-BY-4.0 License
+- caniuse-lite: Creative Commons Attribution 4.0 (data license)
+
+---
+
+For any license compliance questions, please contact the project maintainers.
