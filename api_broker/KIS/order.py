@@ -22,7 +22,8 @@ def place_order(user_id, order):
         elif order["side"] == "sell":
             tr_id = "TTTT1006U"
         else:
-            return
+            print(order)
+            return result
 
         payload = {
             "CANO": get_key(user_id)["account_number_0"],
@@ -47,6 +48,7 @@ def place_order(user_id, order):
 
         url = API_URL + f"/uapi/overseas-stock/v1/trading/order"
         resp = requests.post(url, data=payload, headers=headers, timeout=10)
+        pprint(resp.text)
         resp_json = resp.json()
 
         if "ODNO" in resp_json:
@@ -63,17 +65,17 @@ def place_order(user_id, order):
     except requests.exceptions.RequestException as e:
         Error("KIS requests.exceptions.RequestException")
         print(e)
-        return []
+        return {}
     except Exception as e:
         Error("KIS Exception")
         traceback.print_exc()
-        return []
+        return {}
     
 def cancel_order(user_id, order):
     try:
         result = {
             "result": "error",
-            "message": "Invalid side.",
+            "message": "",
         }
 
         payload = {
@@ -83,7 +85,9 @@ def cancel_order(user_id, order):
             "PDNO": str(order["symbol"]).upper(),
             "ORGN_ODNO": str(order["order_id"]),
             "RVSE_CNCL_DVSN_CD": "02",
+            "ORD_QTY": "1",
             "OVRS_ORD_UNPR": "0",
+            "ORD_SVR_DVSN_CD": "0",
         }
 
         headers = {
@@ -91,12 +95,14 @@ def cancel_order(user_id, order):
             "authorization": "Bearer " + get_access_token(user_id),
             "appkey": get_key(user_id)["app_key"],
             "appsecret": get_key(user_id)["sec_key"],
-            "tr_id": "VTTT1004U",
+            "tr_id": "TTTT1004U",
             "custtype": "P",
         }
 
         url = API_URL + f"/uapi/overseas-stock/v1/trading/order-rvsecncl"
         resp = requests.post(url, data=payload, headers=headers, timeout=10)
+        pprint(payload)
+        pprint(resp.text)
         resp_json = resp.json()
 
         if "ODNO" in resp_json:
@@ -113,8 +119,8 @@ def cancel_order(user_id, order):
     except requests.exceptions.RequestException as e:
         Error("KIS requests.exceptions.RequestException")
         print(e)
-        return []
+        return {}
     except Exception as e:
         Error("KIS Exception")
         traceback.print_exc()
-        return []
+        return {}

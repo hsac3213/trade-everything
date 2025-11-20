@@ -93,6 +93,7 @@ class KISBroker(BrokerInterface):
             url = API_URL + f"/uapi/overseas-stock/v1/trading/inquire-nccs"
             resp = requests.get(url, headers=headers, params=params, timeout=10)
             resp_json = resp.json()
+            pprint(resp_json)
 
             orders = []
             for order in resp_json["output"]:
