@@ -3,6 +3,7 @@ import { createChart, ColorType, CandlestickSeries, HistogramSeries } from 'ligh
 import type { CandlestickData, IChartApi, Time } from 'lightweight-charts';
 import { API_URL } from '../Common/Constants';
 import { useSharedTradeWebSocket } from '../Common/useSharedTradeWebSocket';
+import { SecureAuthService } from '../Auth/AuthService';
 
 const CANDLE_API_URL = `${API_URL}/candle`;
 
@@ -18,6 +19,8 @@ class CandleDatafeed {
   private _broker: string;
   private _symbol: string;
   private _interval: string;
+  private _isLoading: boolean;
+  private _hasMoreData: boolean;
   
   constructor(broker: string, symbol: string, interval: string) {
     this._broker = broker;
@@ -25,6 +28,8 @@ class CandleDatafeed {
     this._interval = interval;
     this._earliestDate = this._getInitialDate(interval);
     this._data = [];
+    this._isLoading = false;
+    this._hasMoreData = true;
   }
   
   private _getInitialDate(interval: string): Date {
@@ -55,6 +60,15 @@ class CandleDatafeed {
   }
   
   async getBars(numberOfExtraBars: number): Promise<CandleWithVolume[]> {
+    // 이미 로딩 중이거나 더 이상 데이터가 없으면 현재 데이터 반환
+    if (this._isLoading || !this._hasMoreData) {
+      console.log(`⏸️ [Datafeed] Skip loading (isLoading: ${this._isLoading}, hasMoreData: ${this._hasMoreData})`);
+      return this._data;
+    }
+
+    this._isLoading = true;
+    const previousLength = this._data.length;
+
     try {
       // interval을 밀리초로 변환
       const getIntervalMs = (interval: string): number => {
@@ -77,22 +91,41 @@ class CandleDatafeed {
 
       console.log("getIntervalMs : " + getIntervalMs(this._interval));
       
-      // numberOfExtraBars만큼 과거 시간 계산
+      // 가장 오래된 날짜 계산 (무한 스크롤 시 왼쪽 끝 기준)
       const intervalMs = getIntervalMs(this._interval);
-      const startDate = new Date(this._earliestDate);
-      startDate.setTime(startDate.getTime() - (intervalMs * numberOfExtraBars));
+      let endDate: Date;
+      
+      if (this._data.length > 0) {
+        // 기존 데이터가 있으면 가장 오래된(첫 번째) 캔들 시간 사용
+        const firstCandleTime = Number(this._data[0].time);
+        endDate = new Date(firstCandleTime * 1000);
+        console.log("Using first candle time as endDate");
+      } else {
+        // 초기 로드시에는 현재 시간 + 1일 사용 (시차 보정)
+        endDate = new Date();
+        endDate.setDate(endDate.getDate() + 1);
+        console.log("Using tomorrow as endDate (initial load)");
+      }
 
       console.log("numberOfExtraBars : " + numberOfExtraBars);
       console.log("intervalMs * numberOfExtraBars : " + (intervalMs * numberOfExtraBars));
+      console.log("endDate : " + endDate);
       
-      const startTime = startDate.toISOString().slice(0, 19).replace('T', ' ');
-      console.log("startTime : " + startTime);
+      const endTime = endDate.toISOString().slice(0, 19).replace('T', ' ');
+      console.log("endTime : " + endTime);
       
       // API 호출
-      const url = `${CANDLE_API_URL}/${this._broker}?symbol=${this._symbol}&interval=${this._interval}&start_time=${encodeURIComponent(startTime)}`;
+      const url = `${CANDLE_API_URL}/${this._broker}?symbol=${this._symbol}&interval=${this._interval}&end_time=${encodeURIComponent(endTime)}`;
       console.log(`[Datafeed] Fetching from: ${url}`);
       
-      const response = await fetch(url);
+      const token = SecureAuthService.getAccessToken();
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
       const data = await response.json();
       
       if (data.message === 'success' && data.candles && Array.isArray(data.candles)) {
@@ -111,6 +144,12 @@ class CandleDatafeed {
           this._earliestDate = new Date(Number(this._data[0].time) * 1000);
         }
         
+        // 데이터가 증가하지 않았으면 더 이상 로드할 데이터가 없음
+        if (this._data.length === previousLength) {
+          this._hasMoreData = false;
+          console.log('⚠️ [Datafeed] No more data available');
+        }
+        
         return this._data;
       } else {
         throw new Error(data.error || 'Invalid response format');
@@ -118,6 +157,8 @@ class CandleDatafeed {
     } catch (err) {
       console.error('[Datafeed] Failed to fetch data:', err);
       return this._data; // 실패 시 기존 데이터 반환
+    } finally {
+      this._isLoading = false;
     }
   }
   
@@ -127,6 +168,8 @@ class CandleDatafeed {
     this._interval = interval;
     this._earliestDate = this._getInitialDate(interval);
     this._data = [];
+    this._isLoading = false;
+    this._hasMoreData = true;
   }
 }
 
@@ -171,6 +214,7 @@ function CandleChart({
     setCandleData([]);
     setIsLoading(true);
     setError(null);
+    lastCandleRef.current = null; // ref도 초기화
     // datafeed 재생성
     datafeedRef.current = new CandleDatafeed(broker, symbol, interval);
   }, [broker, symbol, interval]);
@@ -208,11 +252,16 @@ function CandleChart({
     }
 
     const price = Number(tradeData.price);
+    const quantity = Number(tradeData.quantity) || 0;
     if (isNaN(price)) return;
 
-    // 마지막 캔들 정보 가져오기 (ref 사용)
-    if (!lastCandleRef.current && candleData.length > 0) {
-      lastCandleRef.current = { ...candleData[candleData.length - 1] };
+    // 마지막 캔들 정보 가져오기 (candleData가 업데이트되면 ref도 업데이트)
+    if (candleData.length > 0) {
+      const lastCandle = candleData[candleData.length - 1];
+      // ref가 없거나 시간이 다르면 업데이트
+      if (!lastCandleRef.current || lastCandleRef.current.time !== lastCandle.time) {
+        lastCandleRef.current = { ...lastCandle };
+      }
     }
 
     if (!lastCandleRef.current) return;
@@ -246,7 +295,7 @@ function CandleChart({
         high: Math.max(lastCandleRef.current.high, price),
         low: Math.min(lastCandleRef.current.low, price),
         close: price,
-        volume: lastCandleRef.current.volume,
+        volume: (lastCandleRef.current.volume || 0) + quantity,
       };
       
       // ref 업데이트
@@ -254,6 +303,15 @@ function CandleChart({
       
       // 차트만 업데이트 (상태 업데이트 없음 - 리렌더링 방지)
       candleSeriesRef.current.update(updatedCandle);
+      
+      // volume 시리즈도 업데이트
+      if (volumeSeriesRef.current) {
+        volumeSeriesRef.current.update({
+          time: updatedCandle.time,
+          value: updatedCandle.volume || 0,
+          color: (updatedCandle.close >= updatedCandle.open) ? upColor : downColor,
+        });
+      }
     } else {
       // 새 캔들 생성 (다음 기간으로 넘어감)
       const newCandleTime = (lastCandleTime + intervalSeconds) as Time;
@@ -265,7 +323,7 @@ function CandleChart({
           high: price,
           low: price,
           close: price,
-          volume: 0,
+          volume: quantity,
         };
         
         // ref 업데이트
@@ -273,9 +331,21 @@ function CandleChart({
         
         // 차트에 새 캔들 추가
         candleSeriesRef.current.update(newCandle);
+        
+        // volume 시리즈도 추가
+        if (volumeSeriesRef.current) {
+          volumeSeriesRef.current.update({
+            time: newCandle.time,
+            value: newCandle.volume || 0,
+            color: upColor, // 새 캔들은 일단 상승색
+          });
+        }
+        
+        // state도 업데이트 (무한 스크롤 동기화)
+        setCandleData(prev => [...prev, newCandle]);
       }
     }
-  }, [tradeData, interval]);
+  }, [tradeData, interval, candleData, upColor, downColor]);
 
   useEffect(() => {
     if (!chartContainerRef.current || candleData.length === 0) return;

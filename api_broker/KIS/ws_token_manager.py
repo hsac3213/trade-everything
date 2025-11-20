@@ -75,6 +75,8 @@ def get_ws_token(user_id):
     if token != None:
         sec_key = token["token"]
 
+    conn.close()
+
     # KIS API 서버에 새로운 웹소켓 토큰을 요청
     print('Current ws token in cache is expired. Request new ws token.')
     json_req = {

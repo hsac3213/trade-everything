@@ -2,6 +2,7 @@ from .common import API_URL, get_signed_payload_post, get_key
 from ..Common.Debug import func_name
 
 import requests
+import traceback
 from pprint import pprint
 
 def place_order(user_id, order):
@@ -122,7 +123,6 @@ def cancel_order(user_id, order):
     except Exception as e:
         print(f"[ {func_name()} ]")
         print(e)
-        import traceback
         traceback.print_exc()
         return []
     
@@ -158,6 +158,5 @@ def cancel_all_orders(user_id, order):
     except Exception as e:
         print(f"[ {func_name()} ]")
         print(e)
-        import traceback
         traceback.print_exc()
         return []

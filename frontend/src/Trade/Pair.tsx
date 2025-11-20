@@ -263,13 +263,17 @@ const Pair: React.FC<PairProps> = ({ broker: propBroker }) => {
           >
             <div className="flex justify-between items-center">
               <span className="font-semibold text-sm">{pair.symbol}</span>
+              {/*}
               <span className={`text-sm font-medium ${pair.positive ? 'text-green-400' : 'text-red-400'}`}>
                 {pair.change}
               </span>
+              */}
             </div>
+            {/*
             <div className="text-xs text-gray-400 mt-1">
               ${pair.price}
             </div>
+            */}
           </div>
         ))}
       </div>
@@ -345,13 +349,17 @@ const Pair: React.FC<PairProps> = ({ broker: propBroker }) => {
                       <div className="flex-1">
                         <div className="flex justify-between items-center">
                           <span className="font-semibold text-base">{pair.display_name}({pair.symbol})</span>
+                          {/*
                           <span className={`text-sm font-medium ${pair.positive ? 'text-green-400' : 'text-red-400'}`}>
                             {pair.change}
                           </span>
+                          */}
                         </div>
+                        {/*
                         <div className="text-sm text-gray-300 mt-1">
                           ${pair.price}
                         </div>
+                        */}
                       </div>
                     </div>
                   </div>

@@ -324,28 +324,28 @@ class BinanceBroker(BrokerInterface):
             'timestamp': '2025-01-01T00:00:00Z'
         }
     
-    def get_candle(self, symbol: str, interval: str, start_time: str = None):
+    def get_candle(self, symbol: str, interval: str, end_time: str = None):
         try:
             symbol = symbol.upper()
             interval = interval.lower()
 
             # KST datetime 문자열을 UTC 타임스탬프로 변환
-            start_time_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
-            start_time_utc_timestamp = start_time_dt.timestamp() * 1000
+            end_time_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+            end_time_utc_timestamp = end_time_dt.timestamp() * 1000
 
             url = API_URL + "/api/v3/klines"
             params = {
                 "symbol": symbol,
                 "interval": interval,
-                # 파라미터 이름 유의!(startTime, not start_time)
-                "startTime": int(start_time_utc_timestamp),
+                # 파라미터 이름 유의!(endTime, not end_time)
+                "endTime": int(end_time_utc_timestamp),
                 # limit : Default(500), Max(1000)
                 "limit": 1000,
             }
 
             print("[ get_candle ]")
             print(f"interval : {interval}")
-            print(f"start_time : {start_time}")
+            print(f"end_time : {end_time}")
             
             resp = requests.get(url, params=params, timeout=10)
             resp.raise_for_status()

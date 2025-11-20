@@ -7,6 +7,9 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
+# 테스트
+from ..KIS.token_manager import get_key
+
 # 라우터 import
 from .auth import router as auth_router
 from .user_settings_router import router as user_settings_router
@@ -278,11 +281,12 @@ def get_symbols(broker_name: str):
         }
 
 @app.get("/candle/{broker_name}")
-def get_candle(broker_name: str, symbol: str, interval: str, start_time: str):
+def get_candle(broker_name: str, symbol: str, interval: str, end_time: str, current_user: dict = Depends(get_current_user)):
     try:
-        print(start_time)
-        broker = BrokerFactory.create_broker(broker_name)
-        candles = broker.get_candle(symbol, interval, start_time)
+        #print(end_time)
+        
+        broker = BrokerFactory.create_broker(broker_name, current_user["user_id"])
+        candles = broker.get_candle(symbol, interval, end_time)
 
         return {
             "message": "success",
@@ -582,6 +586,8 @@ async def websocket_proxy(ws: WebSocket):
 
 def main():
     print(f"Starting {SERVER_NAME}...")
+
+    #get_key(2)
     
     uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="info")
 

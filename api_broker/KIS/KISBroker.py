@@ -1,7 +1,9 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
 from .constants import API_URL, WS_URL, COLUMN_TO_KOR_DICT
 from .ws_token_manager import get_ws_token
+from .token_manager import get_access_token, get_key
 from ..Common.Debug import *
+from .order import place_order, cancel_order
 from typing import List, Dict, Any, Callable, Awaitable
 from typing import TypedDict, Literal
 import websockets
@@ -11,7 +13,7 @@ import requests
 import pandas as pd
 import traceback
 from pprint import pprint
-import time
+from datetime import datetime
 
 # [ 종목 코드 파일 ]
 # 아래 파일은 업데이트될 가능성이 있음에 유의
@@ -51,6 +53,184 @@ class KISBroker(BrokerInterface):
 
         #print("[ KISBroker ]")
         #print(f"user_id : {user_id}")
+
+    def place_order(self, order) -> List[Dict[str, Any]]:
+        """
+        KIS 주문 전송
+        """
+        pass
+        #return place_order(self.user_id, order)
+    
+    def cancel_order(self, order) -> List[Dict[str, Any]]:
+        """
+        KIS 주문 취소
+        """
+        return cancel_order(self.user_id, order)
+
+    def get_orders(self):
+        """
+        KIS 미체결 주문 목록
+        """
+        try:
+            params = {
+                "CANO": get_key(self.user_id)["account_number_0"],
+                "ACNT_PRDT_CD": get_key(self.user_id)["account_number_1"],
+                "OVRS_EXCG_CD": "NASD",
+                "SORT_SQN": "DS",
+                "CTX_AREA_FK200": "",
+                "CTX_AREA_NK200": "",
+            }
+
+            headers = {
+                "content-type": "application/json; charset=utf-8",
+                "authorization": "Bearer " + get_access_token(self.user_id),
+                "appkey": get_key(self.user_id)["app_key"],
+                "appsecret": get_key(self.user_id)["sec_key"],
+                "tr_id": "TTTS3018R",
+                "custtype": "P",
+            }
+
+            url = API_URL + f"/uapi/overseas-stock/v1/trading/inquire-nccs"
+            resp = requests.get(url, headers=headers, params=params, timeout=10)
+            resp_json = resp.json()
+
+            orders = []
+            for order in resp_json["output"]:
+                orders.append({
+                    "order_id": order["odno"],
+                    "symbol": order["pdno"],
+                    # BUY(02) or SELL(01)
+                    "side": "buy" if str(order["sll_buy_dvsn_cd"]) == "02" else "sell",
+                    "price": order["ft_ord_unpr3"],
+                    "amount": order["nccs_qty"],
+                })
+
+            return orders
+        except requests.exceptions.RequestException as e:
+            Error("KIS requests.exceptions.RequestException")
+            print(e)
+            return []
+        except Exception as e:
+            Error("KIS Exception")
+            print(e)
+            traceback.print_exc()
+            return []
+
+    def get_candle(self, symbol: str, interval: str, end_time: str = None):
+        try:
+            symbol = symbol.upper()
+            interval = interval.lower()
+
+            # 일봉 조회
+            if interval == "1d":
+                # KST datetime 문자열 형식 변환(YYYYMMDD)
+                end_time_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+                end_time_str = end_time_dt.strftime("%Y%m%d")
+
+                url = API_URL + "/uapi/overseas-price/v1/quotations/dailyprice"
+                params = {
+                    "AUTH": "",
+                    "EXCD": "NAS",
+                    "SYMB": symbol.upper(),
+                    "GUBN": "0",
+                    "BYMD": end_time_str,
+                    "MODP": "1",
+                }
+
+                headers = {
+                    "content-type": "application/json; charset=utf-8",
+                    "authorization": "Bearer " + get_access_token(self.user_id),
+                    "appkey": get_key(self.user_id)["app_key"],
+                    "appsecret": get_key(self.user_id)["sec_key"],
+                    "tr_id": "HHDFS76240000",
+                    "custtype": "P",
+                }
+
+                resp = requests.get(url, params=params, headers=headers,  timeout=10)
+                resp.raise_for_status()     
+                resp_json = resp.json()
+
+                #resp_json["output2"].reverse()
+                candles = []
+                for row in resp_json["output2"]:
+                    open_time_date = datetime.strptime(row["xymd"], "%Y%m%d")
+                    open_time_timestamp = open_time_date.timestamp()
+
+                    candles.append({
+                        # lightweight-charts는 초 단위 timestamp 필요
+                        "time": int(open_time_timestamp),
+                        "open": float(row["open"]),
+                        "high": float(row["high"]),
+                        "low": float(row["low"]),
+                        "close": float(row["clos"]),
+                        # 거래금액 (Quote Asset Volume)
+                        "volume": float(row["tvol"]),
+                    })
+
+                return candles
+            # 시봉 조회
+            elif interval == "1h":
+                # KST datetime 문자열 형식 변환(YYYYMMDD)
+                end_time_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+                end_time_str = end_time_dt.strftime("%Y%m%d")
+
+                url = API_URL + "/uapi/overseas-price/v1/quotations/inquire-time-itemchartprice"
+                params = {
+                    "AUTH": "",
+                    "EXCD": "NAS",
+                    "SYMB": symbol.upper(),
+                    # 60분봉
+                    "NMIN": "60",
+                    # 전일 포함 여부(1)
+                    "PINC": "1",
+                    # 처음 조회 여부
+                    "NEXT": "",
+                    # 요청 개수(최대 120개)
+                    "NREC": "120",
+                    "FILL": "",
+                    "KEYB": "",
+                }
+
+                headers = {
+                    "content-type": "application/json; charset=utf-8",
+                    "authorization": "Bearer " + get_access_token(self.user_id),
+                    "appkey": get_key(self.user_id)["app_key"],
+                    "appsecret": get_key(self.user_id)["sec_key"],
+                    "tr_id": "HHDFS76950200",
+                    "custtype": "P",
+                }
+
+                resp = requests.get(url, params=params, headers=headers,  timeout=10)
+                resp.raise_for_status()     
+                resp_json = resp.json()
+
+                #resp_json["output2"].reverse()
+                candles = []
+                for row in resp_json["output2"]:
+                    open_time_date = datetime.strptime(row["kymd"] + " " + row["khms"], "%Y%m%d %H%M%S")
+                    open_time_timestamp = open_time_date.timestamp()
+
+                    candles.append({
+                        # lightweight-charts는 초 단위 timestamp 필요
+                        "time": int(open_time_timestamp),
+                        "open": float(row["open"]),
+                        "high": float(row["high"]),
+                        "low": float(row["low"]),
+                        "close": float(row["last"]),
+                        # 체결량
+                        "volume": float(row["evol"]),
+                    })
+
+                return candles
+            
+        except requests.exceptions.RequestException as e:
+            Error("[ KIS ]")
+            Error("requests.exceptions.RequestException")
+            return []
+        except Exception as e:
+            Error("[ KIS ]")    
+            traceback.print_exc()
+            return []
 
     @staticmethod
     async def _ws_connect(user_id: str):
