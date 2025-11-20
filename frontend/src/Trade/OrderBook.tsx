@@ -69,7 +69,7 @@ const OrderBookRow: React.FC<OrderBookRowProps> = ({ price, quantity, type, disp
       ></div>
       
       {/* Price */}
-      <span className={`z-10 font-mono ${textColor}`}>{price.toLocaleString()}</span>
+      <span className={`z-10 font-mono ${textColor}`}>{price.toFixed(4)}</span>
       
       {/* Amount */}
       <span className="z-10 font-mono text-right">{quantity.toFixed(5)}</span>

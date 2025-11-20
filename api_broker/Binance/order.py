@@ -1,5 +1,5 @@
 from .common import API_URL, get_signed_payload_post, get_key
-from ..Common.Debug import func_name
+from ..Common.Debug import *
 
 import requests
 import traceback
@@ -57,40 +57,15 @@ def place_order(user_id, order):
 
 def cancel_order(user_id, order):
     try:
-        # 미체결 주문 목록 조회
-        headers = {
-            "X-MBX-APIKEY": get_key(user_id)["API"],
-        }
-
-        params = {}
-        payload = get_signed_payload_post(user_id, params)
-
-        url = API_URL + f"/api/v3/openOrders"
-        resp = requests.get(url, headers=headers, params=payload, timeout=10)
-        resp_json = resp.json()
-
-        orders = []
-        for order in resp_json:
-            orders.append({
-                "order_id": order["orderId"],
-                # e.g. BTCUSDT
-                "symbol": order["symbol"],
-                # BUY or SELL
-                "side": str(order["side"]).lower(),
-                "price": order["price"],
-                "amount": order["origQty"],
-            })
-
-        return orders
-    
-        headers = {
-            "X-MBX-APIKEY": get_key(self.user_id)["API"],
-        }
-
         params = {
             "symbol": str(order["symbol"]).upper(),
             "orderId": order["order_id"],
         }
+
+        headers = {
+            "X-MBX-APIKEY": get_key(user_id)["API"],
+        }
+
         payload = get_signed_payload_post(user_id, params)
 
         url = API_URL + f"/api/v3/order"

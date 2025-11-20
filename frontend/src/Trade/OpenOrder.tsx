@@ -62,56 +62,21 @@ const OpenOrder: React.FC<OpenOrderProps> = ({ broker, onRefreshRequest }) => {
 
   // 모든 주문 취소
   const cancelAllOrders = async () => {
-    if (openOrders.length === 0) {
-      showToast.info('No orders to cancel');
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to cancel all ${openOrders.length} orders?`)) {
-      return;
-    }
-
     try {
       const token = SecureAuthService.getAccessToken();
       let successCount = 0;
-      let failCount = 0;
-
-      // 모든 주문을 순차적으로 취소
-      for (const order of openOrders) {
-        try {
-          const response = await fetch(`${API_URL}/cancel_order/${broker}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              symbol: order.symbol,
-              order_id: order.order_id
-            })
-          });
-
-          const data = await response.json();
-          
-          if (data.message === 'success') {
-            successCount++;
-          } else {
-            failCount++;
-            console.error(`Failed to cancel order ${order.order_id}:`, data.error);
-          }
-        } catch (error) {
-          failCount++;
-          console.error(`Error canceling order ${order.order_id}:`, error);
+      
+      const resp = await fetch(`${API_URL}/cancel_all_orders/${broker}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      }
+      });
+      const resp_json = await resp.json();
 
       // 결과 표시
-      if (successCount > 0) {
-        showToast.success(`${successCount} order(s) canceled successfully`);
-      }
-      if (failCount > 0) {
-        showToast.error(`Failed to cancel ${failCount} order(s)`);
-      }
+      showToast.success(`${successCount} order(s) canceled successfully`);
 
       // 주문 목록 갱신
       await fetchOrders();
