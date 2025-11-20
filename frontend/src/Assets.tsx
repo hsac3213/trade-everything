@@ -11,16 +11,6 @@ const Assets: React.FC = () => {
             <span className="text-gray-400">Total Balance</span>
             <span className="text-3xl font-bold">$0.00</span>
           </div>
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <div className="text-gray-400">Spot</div>
-              <div className="text-lg font-semibold">$0.00</div>
-            </div>
-            <div>
-              <div className="text-gray-400">Earning</div>
-              <div className="text-lg font-semibold">$0.00</div>
-            </div>
-          </div>
         </div>
         
         {/* 자산 목록 테이블 */}
@@ -28,10 +18,9 @@ const Assets: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gray-600">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Asset</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">Total</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">Available</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">In Order</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Type</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Amount</th>
                 <th className="px-6 py-3 text-right text-sm font-semibold">Value</th>
               </tr>
             </thead>

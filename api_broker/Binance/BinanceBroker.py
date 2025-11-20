@@ -42,13 +42,13 @@ class BinanceBroker(BrokerInterface):
         """
         Binance 주문 전송
         """
-        return place_order(None, order)
+        return place_order(self.user_id, order)
     
     def cancel_order(self, order) -> List[Dict[str, Any]]:
         """
         Binance 주문 취소
         """
-        return cancel_order(None, order)
+        return cancel_order(self.user_id, order)
     
     def cancel_all_orders(self) -> List[Dict[str, Any]]:
         """

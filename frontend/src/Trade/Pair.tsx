@@ -21,7 +21,7 @@ const Pair: React.FC<PairProps> = ({ broker: propBroker }) => {
   const { broker, symbol, setSymbol } = useBroker();
   const effectiveBroker = propBroker || broker;
   
-  const [selectedPair, setSelectedPair] = useState<string>(symbol);
+  const [selectedPair, setSelectedPair] = useState<string>(symbol.toUpperCase());
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [modalSearchTerm, setModalSearchTerm] = useState<string>('');
@@ -29,6 +29,12 @@ const Pair: React.FC<PairProps> = ({ broker: propBroker }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set()); // 즐겨찾기 상태
   const [favoritePairs, setFavoritePairs] = useState<TradingPair[]>([]); // 즐겨찾기 페어 목록
+
+  // 전역 symbol이 변경되면 selectedPair도 동기화
+  useEffect(() => {
+    setSelectedPair(symbol.toUpperCase());
+    console.log(`[Pair] Symbol changed to: ${symbol.toUpperCase()}`);
+  }, [symbol, broker]); // broker도 의존성에 추가하여 거래소 변경 시에도 동기화
 
   // 즐겨찾기 목록 로드
   useEffect(() => {

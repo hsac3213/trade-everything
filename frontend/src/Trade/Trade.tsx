@@ -83,33 +83,14 @@ const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol, sel
 };
 
 const Trade: React.FC = () => {
-  const { broker, setBroker, symbol, setSymbol } = useBroker();
+  const { broker, setBroker, symbol } = useBroker();
   const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
   
-  // 거래소 변경 핸들러
+  // 거래소 변경 핸들러 - 이제 symbol은 자동으로 해당 거래소의 마지막 선택 심볼로 변경됨
   const handleExchangeChange = (newExchange: string) => {
     console.log(`[Trade.tsx] Changing exchange from ${broker} to ${newExchange}`);
-    
-    // 1. 거래소 변경
     setBroker(newExchange);
-    
-    // 2. 심볼 초기화 (각 거래소의 기본 심볼로)
-    const defaultSymbol = getDefaultSymbol(newExchange);
-    setSymbol(defaultSymbol);
-    
-    console.log(`[Trade.tsx] Exchange changed to ${newExchange}, symbol reset to ${defaultSymbol}`);
-  };
-  
-  // 거래소별 기본 심볼 반환
-  const getDefaultSymbol = (exchangeName: string): string => {
-    switch (exchangeName) {
-      case 'Binance':
-        return 'BTCUSDT';
-      case 'KIS':
-        return 'NVDA';
-      default:
-        return 'Unknown';
-    }
+    // symbol은 BrokerContext에서 자동으로 해당 거래소의 심볼로 변경됨
   };
 
   return (
