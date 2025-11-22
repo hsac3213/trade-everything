@@ -4,6 +4,7 @@ from .common import API_URL, WSS_URL, WS_URL, get_key
 from .common import get_signed_payload_ws, get_signed_payload_post
 from .price import get_realtime_orderbook_price, get_realtime_trade_price
 from .order import place_order, cancel_order, cancel_all_orders
+from ..Common.Debug import *
 
 from typing import List, Dict, Any, Callable, Awaitable
 import websockets
@@ -14,6 +15,7 @@ from datetime import datetime, timedelta
 import time
 from urllib.parse import urlencode
 import uuid
+import traceback
 
 from pprint import pprint
 
@@ -21,7 +23,7 @@ from pprint import pprint
 # Binance는 IP 당 limit이 존재하므로 나중에는 클라이언트에서 웹소켓 스트림을 직접 구독하도록 수정하기
 # 또는, 아래와 같은 이중 구조도 고려해볼 것
 # -> 클라이언트의 웹소켓 : Display
-# -> 서버의 웹소켓 : 서버 사이드 자동 거래 스크립트 등에 활용
+# -> 서버의 웹소켓(24/7 연결 유지) : 서버 사이드 자동 거래 스크립트 등에 활용
 
 # Endpoint 마다 rate limit 관리 코드 추가하기!!
 # HTTP 429 return code is used when breaking a request rate limit.
@@ -99,13 +101,14 @@ class BinanceBroker(BrokerInterface):
             return []
 
     # https://developers.binance.com/docs/binance-spot-api-docs/user-data-stream#order-update
-    async def subscribe_execution_async(self, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+    async def subscribe_order_update_async(self, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         """
-        Binance 실시간 체결 통보 구독
+        Binance 실시간 주문 업데이트 구독
+        -> 주문 접수/체결/취소 등
         """
         try:
             url = WS_URL
-            async with websockets.connect(url, ping_interval=20, ping_timeout=10) as ws:
+            async with websockets.connect(url, ping_interval=10.0, ping_timeout=10.0) as ws:
                 params = {
                     "apiKey": get_key(self.user_id)["API"],
                 }
@@ -113,8 +116,8 @@ class BinanceBroker(BrokerInterface):
                 await ws.send(json.dumps(payload))
                 resp = json.loads(await ws.recv())
 
-                print("[ session.logon ]")
-                print(resp)
+                #print("[ session.logon ]")
+                #print(resp)
 
                 payload = {
                     "id": str(uuid.uuid4()),
@@ -123,44 +126,88 @@ class BinanceBroker(BrokerInterface):
                 await ws.send(json.dumps(payload))
                 resp = json.loads(await ws.recv())
 
-                print("[ userDataStream.subscribe ]")
-                print(resp)
+                #print("[ userDataStream.subscribe ]")
+                #print(resp)
 
                 while True:
                     try:
                         resp_json = json.loads(await ws.recv())
+                        pprint(resp_json)
 
                         if "event" in resp_json:
-                            if resp_json["event"]["e"] == "executionReport" and resp_json["event"]["x"] == "TRADE":
-                                normalized_json = {
-                                    # Order ID
-                                    "order_id": resp_json["event"]["i"],
-                                    # Cumulative filled quantity
-                                    "quantity": resp_json["event"]["z"],
-                                }
+                            normalized_json = {}
+                            # 주문 처리
+                            if resp_json["event"]["e"] == "executionReport":
+                                # 새 주문
+                                if resp_json["event"]["x"] == "NEW":
+                                    normalized_json = {
+                                        # Order Status
+                                        "order_status": "NEW",
+                                        # Order ID
+                                        "order_id": resp_json["event"]["i"],
+                                        # Symbol
+                                        "symbol": resp_json["event"]["s"],
+                                        # Side
+                                        # -> 대문자 S
+                                        "side": resp_json["event"]["S"],
+                                        # Order price
+                                        "price": resp_json["event"]["p"],
+                                        # Order quantity
+                                        "quantity": resp_json["event"]["q"],
+                                    }
+                                # 주문 체결
+                                elif resp_json["event"]["x"] == "TRADE":
+                                    normalized_json = {
+                                        # Order Status
+                                        "order_status": "TRADE",
+                                        # Order ID
+                                        "order_id": resp_json["event"]["i"],
+                                        # Symbol
+                                        "symbol": resp_json["event"]["s"],
+                                        # Side
+                                        # -> 대문자 S
+                                        "side": resp_json["event"]["S"],
+                                        # Order price
+                                        "price": resp_json["event"]["p"],
+                                        # Order quantity
+                                        "quantity": resp_json["event"]["q"],
+                                    }
+                                # 주문 취소
+                                elif resp_json["event"]["x"] == "CANCELED":
+                                    normalized_json = {
+                                        # Order Status
+                                        "order_status": "CANCELED",
+                                        # Order ID
+                                        "order_id": resp_json["event"]["i"],
+                                        # Symbol
+                                        "symbol": resp_json["event"]["s"],
+                                        # Side
+                                        # -> 대문자 S
+                                        "side": resp_json["event"]["S"],
+                                    }
                                 await callback(normalized_json)
                         
                     except json.JSONDecodeError as e:
-                        print(f"JSON decode error: {e}")
-                    except asyncio.CancelledError:
-                        print("asyncio.CancelledError")
+                        Error(f"JSON decode error: {e}")
+                    except asyncio.CancelledErroras as e:
+                        Error("asyncio.CancelledError")
+                        print(e)
                         # 취소 신호 - 즉시 종료
                         raise
                     except Exception:
                         # 콜백 오류 (연결 끊김 등) - 조용히 종료
-                        print(f"Exception")
+                        Error(f"Exception")
                         raise asyncio.CancelledError("Callback error")
         
         except asyncio.CancelledError:
-            # 정상적인 취소 - 로그 없음
+            Info("Binance asyncio.CancelledError")
             pass
         except websockets.exceptions.ConnectionClosed:
+            Info("Binance websockets.exceptions.ConnectionClosed")
             # Binance 연결 종료 - 로그 없음
             pass
         except Exception as e:
-            print(f"Binance WebSocket error: {e}")
-            import traceback
-            traceback.print_exc()
+            Error(f"Binance WebSocket error: {e}")
             print(traceback.format_exc())
     
     async def subscribe_userdata_async(self, callback: Callable[[Dict[str, Any]], Awaitable[None]]):

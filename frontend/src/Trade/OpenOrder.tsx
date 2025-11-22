@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { showToast } from '../Common/Toast';
 import { SecureAuthService } from '../Auth/AuthService';
-import { API_URL } from '../Common/Constants';
+import { API_URL, WS_URL } from '../Common/Constants';
 
 // --- 타입 정의 ---
 interface OpenOrder {
@@ -21,6 +21,7 @@ interface OpenOrderProps {
 const OpenOrder: React.FC<OpenOrderProps> = ({ broker, onRefreshRequest }) => {
   const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // 주문 목록 가져오기
   const fetchOrders = async () => {
@@ -60,11 +61,111 @@ const OpenOrder: React.FC<OpenOrderProps> = ({ broker, onRefreshRequest }) => {
     }
   }, [broker]);
 
+  // WebSocket 구독 - 주문 업데이트 실시간 수신
+  useEffect(() => {
+    // 기존 연결 종료
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    // 새 WebSocket 연결
+    const ws = new WebSocket(`${WS_URL}/ws/order_update/${broker}`);
+    
+    ws.onopen = () => {
+      console.log(`✅ Order update WebSocket connected: ${broker}`);
+      // 인증 토큰 전송
+      const token = SecureAuthService.getAccessToken();
+      if (token) {
+        ws.send(JSON.stringify({ token }));
+        console.log(`Token sent for order update`);
+      } else {
+        console.error(`No token available for order update`);
+        ws.close(1008, 'No authentication token');
+      }
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        // 인증 응답 처리
+        if (message.type === 'authenticated') {
+          console.log(`Order update authenticated`);
+          return;
+        }
+        
+        // 에러 응답 처리
+        if (message.type === 'error') {
+          console.error(`Order update error:`, message.message);
+          return;
+        }
+        
+        // 주문 업데이트 데이터 처리
+        if (message.type === 'userdata' && message.data) {
+          const orderData = message.data;
+          console.log('Order update received:', orderData);
+          
+          // 주문 체결
+          if (orderData.order_status === 'TRADE') {
+            setOpenOrders(prev => 
+              prev.filter(order => order.order_id !== orderData.order_id)
+            );
+            showToast.success(`Order filled: ${orderData.symbol} ${orderData.side} @ ${orderData.price}`);
+          }
+          // 주문 취소
+          else if (orderData.order_status === 'CANCELED') {
+            setOpenOrders(prev => 
+              prev.filter(order => order.order_id !== orderData.order_id)
+            );
+            showToast.info(`Order canceled: ${orderData.symbol} ${orderData.side}`);
+          }
+          // 새 주문
+          else if (orderData.order_status === 'NEW') {
+            // 이미 목록에 없으면 추가
+            setOpenOrders(prev => {
+              const exists = prev.some(order => order.order_id === orderData.order_id);
+              if (!exists) {
+                return [...prev, {
+                  order_id: orderData.order_id,
+                  symbol: orderData.symbol,
+                  side: orderData.side,
+                  price: orderData.price,
+                  amount: orderData.quantity
+                }];
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing order update:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error(`❌ Order update WebSocket error:`, error);
+    };
+
+    ws.onclose = () => {
+      console.log(`🔌 Order update WebSocket closed`);
+    };
+
+    wsRef.current = ws;
+
+    // Cleanup
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [broker]);
+
   // 모든 주문 취소
   const cancelAllOrders = async () => {
     try {
       const token = SecureAuthService.getAccessToken();
-      let successCount = 0;
       
       const resp = await fetch(`${API_URL}/cancel_all_orders/${broker}`, {
         method: 'POST',
@@ -76,7 +177,11 @@ const OpenOrder: React.FC<OpenOrderProps> = ({ broker, onRefreshRequest }) => {
       const resp_json = await resp.json();
 
       // 결과 표시
-      showToast.success(`${successCount} order(s) canceled successfully`);
+      if (resp_json.message === 'success') {
+        showToast.success('All orders canceled successfully');
+      } else {
+        showToast.error(`Failed to cancel orders: ${resp_json.error || 'Unknown error'}`);
+      }
 
       // 주문 목록 갱신
       await fetchOrders();

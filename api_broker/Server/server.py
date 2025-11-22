@@ -22,7 +22,8 @@ app = FastAPI(title=SERVER_NAME)
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # React/Vite 개발 서버
+    # React/Vite 개발 서버
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,6 +32,114 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(auth_router)
 app.include_router(user_settings_router)
+
+"""
+실시간 주문 업데이트 구독
+-> 주문 접수/체결/취소 등
+"""
+@app.websocket("/ws/order_update/{broker_name}")
+async def websocket_order_update(ws: WebSocket, broker_name: str):
+    await ws.accept()
+    
+    broker = None
+    subscription_task = None
+    is_connected = True
+    
+    try:
+        auth_message = await asyncio.wait_for(
+            ws.receive_json(),
+            timeout=10.0
+        )
+        
+        token = auth_message.get("token")
+        if not token:
+            await ws.send_json({
+                "type": "error",
+                "message": "Token is required."
+            })
+            await ws.close(code=1008)
+            return
+        
+        # 클라이언트 정보 추출 (핑거프린트 검증용)
+        client_ip = ws.client.host if ws.client else "unknown"
+        user_agent = ws.headers.get("user-agent", "")
+        
+        # 사용자 인증 (핑거프린트 검증 포함)
+        try:
+            user = await get_user_from_token(token, client_ip, user_agent)
+        except Exception as e:
+            await ws.send_json({
+                "type": "error",
+                "message": "Authentication failed."
+            })
+            await ws.close(code=1008)
+            return
+        
+        # 인증 성공 알림
+        await ws.send_json({
+            "type": "authenticated",
+            "user_id": user["user_id"]
+        })
+        
+        broker = BrokerFactory.create_broker(broker_name, user["user_id"])
+        
+        async def send_callback(data: dict):
+            nonlocal is_connected
+            if not is_connected:
+                raise asyncio.CancelledError("Client disconnected")
+            try:
+                await ws.send_json({
+                    "type": "userdata",
+                    "data": data
+                })
+            except WebSocketDisconnect:
+                is_connected = False
+                raise asyncio.CancelledError("Client disconnected")
+            except Exception as e:
+                is_connected = False
+                raise asyncio.CancelledError(f"Send error: {e}")
+        
+        subscription_task = asyncio.create_task(
+            broker.subscribe_order_update_async(send_callback)
+        )
+        await subscription_task
+    
+    except asyncio.TimeoutError:
+        Error(f"Authentication timeout: {broker_name}")
+        try:
+            await ws.send_json({
+                "type": "error",
+                "message": "Authentication timeout"
+            })
+        except:
+            pass
+        try:
+            await ws.close(code=1008)
+        except:
+            pass
+    except WebSocketDisconnect:
+        is_connected = False
+    except asyncio.CancelledError:
+        is_connected = False
+    except Exception as e:
+        is_connected = False
+        Error(f"Userdata WebSocket error: {e}")
+        try:
+            await ws.send_json({
+                "type": "error",
+                "message": "Internal server error"
+            })
+        except:
+            pass
+    finally:
+        is_connected = False
+        if subscription_task and not subscription_task.done():
+            subscription_task.cancel()
+            try:
+                await subscription_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        Info(f"Userdata closed: {broker_name}")
 
 @app.get("/")
 def get_root():
@@ -585,10 +694,8 @@ async def websocket_proxy(ws: WebSocket):
         print(f"WebSocket closed")
 
 def main():
-    print(f"Starting {SERVER_NAME}...")
+    Info(f"Starting {SERVER_NAME}...")
 
-    #get_key(2)
-    
     uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="info")
 
 if __name__ == "__main__":

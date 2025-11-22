@@ -1,4 +1,5 @@
 from ..Server.redis_manager import RedisManager
+from ..Common.Debug import *
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -46,7 +47,7 @@ def get_key(user_id):
 
     # 캐시된 key가 유효한지 검사
     if redis_manager.redis_client.exists(key) > 0:
-        print("Use cached Binance key.")
+        #print("Use cached Binance key.")
         return json.loads(redis_manager.redis_client.get(name=key))
 
     conn = get_db_conn()
@@ -77,6 +78,7 @@ def get_key(user_id):
     }
     redis_manager.redis_client.set(name=key, value=json.dumps(key_json), ex=60 * 60 * 23)
 
+    Info("")
     return key_json
 
 # https://github.com/binance/binance-signature-examples/tree/master/python
