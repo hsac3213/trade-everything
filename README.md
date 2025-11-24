@@ -2,8 +2,6 @@
 TradingView Lightweight Charts™
 Copyright (с) 2025 TradingView, Inc. https://www.tradingview.com/
 
-# 라이센스 준수를 위해 웹페이지 내 TradingView 로고 노출 필요함
-
 # References
 한국투자증권 OpenAPI 공식 샘플 코드<br>
 https://github.com/koreainvestment/open-trading-api<br>
@@ -14,7 +12,7 @@ https://developers.binance.com/docs/binance-spot-api-docs/websocket-api/request-
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file(or License page on the website) for details.
 
 ### Third-Party Licenses
 
@@ -31,6 +29,6 @@ For detailed license information, see:
 
 ### License Compliance
 
-✅ All dependencies are compatible with commercial distribution
-✅ Apache-2.0 and MPL-2.0 license texts preserved
+✅ All dependencies are compatible with commercial distribution<br>
+✅ Apache-2.0 and MPL-2.0 license texts preserved<br>
 ✅ TradingView attribution displayed in application

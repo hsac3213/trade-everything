@@ -132,7 +132,7 @@ class BinanceBroker(BrokerInterface):
                 while True:
                     try:
                         resp_json = json.loads(await ws.recv())
-                        pprint(resp_json)
+                        #pprint(resp_json)
 
                         if "event" in resp_json:
                             normalized_json = {}

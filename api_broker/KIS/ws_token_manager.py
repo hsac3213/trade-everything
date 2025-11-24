@@ -16,20 +16,6 @@ DB_ROOT_CA_PATH = os.environ.get("DB_ROOT_CA_PATH")
 DB_CERT_PATH = os.environ.get("DB_CERT_PATH")
 DB_CERT_KEY_PATH = os.environ.get("DB_CERT_KEY_PATH")
 
-from datetime import datetime, timedelta
-
-WS_TOKEN_DIR = "./Token"
-WS_TOKEN_PATH = WS_TOKEN_DIR + "/KIS_WS_TOKEN.txt"
-
-# 환경변수로부터 API 키와 계좌 정보를 가져옴
-APP_KEY = os.environ.get("KIS_APP")
-SEC_KEY = os.environ.get("KIS_SEC")
-
-# 메모리상에 웹소켓 토큰을 유지하기 위한 딕셔너리
-ws_token_dict = {
-
-}
-
 redis_manager = RedisManager()
 
 def get_db_conn():
