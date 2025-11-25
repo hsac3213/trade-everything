@@ -1,5 +1,6 @@
 from ..Server.redis_manager import RedisManager
 from ..Common.Debug import *
+from ..Common.DBManager import get_db_conn
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -17,30 +18,12 @@ WS_URL = "wss://ws-api.binance.com:443/ws-api/v3"
 # 암호화폐 거래 쌍 화이트 리스트
 # -> 화이트 리스트 이외의 거래 쌍에 대해서는 모든 요청 거부
 CRYPTO_PAIR_WHITELIST = [
-    "btcusdt"
+    "btcusdt",
+    "btcusdc",
+    "usdcusdt",
 ]
 
-# DB 서버 관련 환경변수 읽기
-DB_HOST = os.environ.get("DB_HOST")
-DB_ID = os.environ.get("DB_ID")
-DB_NAME = "tedb"
-DB_ROOT_CA_PATH = os.environ.get("DB_ROOT_CA_PATH")
-DB_CERT_PATH = os.environ.get("DB_CERT_PATH")
-DB_CERT_KEY_PATH = os.environ.get("DB_CERT_KEY_PATH")
-
 redis_manager = RedisManager()
-
-def get_db_conn():
-    return psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_ID,
-        cursor_factory=RealDictCursor,
-        sslmode='verify-full',
-        sslrootcert=DB_ROOT_CA_PATH,
-        sslcert=DB_CERT_PATH,       
-        sslkey=DB_CERT_KEY_PATH,
-    )
 
 def get_key(user_id):
     key = f"{user_id}_Binance_KEY"

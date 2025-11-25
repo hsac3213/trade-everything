@@ -1,4 +1,4 @@
-from ..Common.DBManager import *
+from ..Common.DBManager import get_db_conn
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import json
@@ -10,16 +10,7 @@ class UserSettingsManager:
         self.conn = None
     
     def connect(self):
-        self.conn = psycopg2.connect(
-            host=DB_HOST,
-            database=DB_NAME,
-            user=DB_ID,
-            cursor_factory=RealDictCursor,
-            sslmode='verify-full',
-            sslrootcert=DB_ROOT_CA_PATH,
-            sslcert=DB_CERT_PATH,       
-            sslkey=DB_CERT_KEY_PATH,
-        )
+        self.conn = get_db_conn()
     
     def get_connection(self):
         if self.conn is None or self.conn.closed:

@@ -10,6 +10,18 @@ DB_ROOT_CA_PATH = os.environ.get("DB_ROOT_CA_PATH")
 DB_CERT_PATH = os.environ.get("DB_CERT_PATH")
 DB_CERT_KEY_PATH = os.environ.get("DB_CERT_KEY_PATH")
 
+def get_db_conn():
+    return psycopg2.connect(
+            host=DB_HOST,
+            database=DB_NAME,
+            user=DB_ID,
+            cursor_factory=RealDictCursor,
+            sslmode='verify-full',
+            sslrootcert=DB_ROOT_CA_PATH,
+            sslcert=DB_CERT_PATH,       
+            sslkey=DB_CERT_KEY_PATH,
+        )
+
 class DBManager:
     def __init__(self):
         self.conn = None

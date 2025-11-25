@@ -1,6 +1,7 @@
 from .session_manager import SecureSessionManager, ACCESS_TOKEN_EXPIRE_MINUTES
 from .auth_dependency import get_current_user
 from .redis_manager import RedisManager
+from ..Common.DBManager import get_db_conn
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from typing import Optional, List, Any
@@ -24,22 +25,6 @@ from webauthn.helpers.structs import (
     AuthenticatorTransport,
 )
 from webauthn.helpers.cose import COSEAlgorithmIdentifier
-
-# DB 서버 관련 환경변수 읽기
-DB_HOST = os.environ.get("DB_HOST")
-DB_ID = os.environ.get("DB_ID")
-DB_NAME = "tedb"
-DB_ROOT_CA_PATH = os.environ.get("DB_ROOT_CA_PATH")
-DB_CERT_PATH = os.environ.get("DB_CERT_PATH")
-DB_CERT_KEY_PATH = os.environ.get("DB_CERT_KEY_PATH")
-
-"""
-print(f"DB_HOST : {DB_HOST}")
-print(f"DB_ID : {DB_ID}")
-print(f"DB_ROOT_CA_PATH : {DB_ROOT_CA_PATH}")
-print(f"DB_CERT_PATH : {DB_CERT_PATH}")
-print(f"DB_CERT_KEY_PATH : {DB_CERT_KEY_PATH}")
-"""
 
 # 라우터 생성
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -109,18 +94,6 @@ class ChallengeManager:
 # Challenge 관리자 인스턴스 (바이너리 Redis 클라이언트 사용)
 challenge_manager = ChallengeManager(redis_manager.redis_client_binary)
 
-def get_db_connection():
-    return psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_ID,
-        cursor_factory=RealDictCursor,
-        sslmode='verify-full',
-        sslrootcert=DB_ROOT_CA_PATH,
-        sslcert=DB_CERT_PATH,       
-        sslkey=DB_CERT_KEY_PATH,
-    )
-
 # ==================== Pydantic 모델 ====================
 
 class PasskeyRegisterBeginRequest(BaseModel):
@@ -181,7 +154,7 @@ async def passkey_register_begin(req: PasskeyRegisterBeginRequest):
     username = req.username
     
     try:
-        conn = get_db_connection()
+        conn = get_db_conn()
         cursor = conn.cursor()
         
         # 사용자 존재 여부 확인
@@ -263,7 +236,7 @@ async def passkey_register_complete(req: PasskeyRegisterCompleteRequest):
         )
         
         # DB에 사용자 및 Credential 저장
-        conn = get_db_connection()
+        conn = get_db_conn()
         cursor = conn.cursor()
         
         # 사용자 생성
@@ -332,7 +305,7 @@ async def passkey_login_begin(req: PasskeyLoginBeginRequest):
     username = req.username
     
     try:
-        conn = get_db_connection()
+        conn = get_db_conn()
         cursor = conn.cursor()
         
         # 사용자 조회
@@ -444,7 +417,7 @@ async def passkey_login_complete(request: Request):
         
         print(f"✅ Challenge retrieved (length: {len(expected_challenge)})")
         
-        conn = get_db_connection()
+        conn = get_db_conn()
         cursor = conn.cursor()
         
         # 사용자 조회
@@ -607,7 +580,7 @@ async def passkey_add_begin(req: PasskeyRegisterBeginRequest, current_user: dict
     user_id = current_user.get("user_id")
     
     try:
-        conn = get_db_connection()
+        conn = get_db_conn()
         cursor = conn.cursor()
         
         # 사용자 확인
@@ -710,7 +683,7 @@ async def passkey_add_complete(req: PasskeyRegisterCompleteRequest, current_user
         )
         
         # DB에 Credential 저장
-        conn = get_db_connection()
+        conn = get_db_conn()
         cursor = conn.cursor()
         
         # 사용자 확인
@@ -794,7 +767,7 @@ async def passkey_list(current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id")
     
     try:
-        conn = get_db_connection()
+        conn = get_db_conn()
         cursor = conn.cursor()
         
         cursor.execute(
@@ -850,7 +823,7 @@ async def passkey_remove(credential_id: str, current_user: dict = Depends(get_cu
     user_id = current_user.get("user_id")
     
     try:
-        conn = get_db_connection()
+        conn = get_db_conn()
         cursor = conn.cursor()
         
         # 최소 1개는 남겨야 함

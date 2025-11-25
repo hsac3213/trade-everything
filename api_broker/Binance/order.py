@@ -1,4 +1,4 @@
-from .common import API_URL, get_signed_payload_post, get_key
+from .common import API_URL, CRYPTO_PAIR_WHITELIST, get_signed_payload_post, get_key
 from ..Common.Debug import *
 
 import requests
