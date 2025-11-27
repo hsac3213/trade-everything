@@ -2,6 +2,29 @@
 API_URL = "https://openapi.koreainvestment.com:9443"
 WS_URL = "ws://ops.koreainvestment.com:21000"
 
+# https://www.truefriend.com/main/bond/research/_static/TF03ca050001.jsp
+# [ 거래 가능 시간 ]
+# 주간거래(ATS)
+DAY_MARKET_TIME = [ "10:00", "18:00" ]
+# 프리마켓
+PRE_MARKET_TIME = [ "18:00", "23:30" ]
+# 정규장
+MAIN_MARKET_TIME = [ "23:30", "06:00" ]
+# 애프터마켓
+AFTER_MARKET_TIME = [ "06:00", "07:00" ]
+# 애프터마켓 연장 신청 시(서머타임 동일)
+EXTENDED_AFTER_MARKET_TIME = [ "07:00", "09:00" ]
+
+# [ 서머타임 ]
+# 주간거래(ATS)
+#DAY_MARKET_TIME = [ "10:00", "17:00" ]
+# 프리마켓
+#PRE_MARKET_TIME = [ "17:00", "22:30" ]
+# 정규장
+#MAIN_MARKET_TIME = [ "22:30", "05:00" ]
+# 애프터마켓
+#AFTER_MARKET_TIME = [ "05:00", "06:00" ]
+
 # 컬럼 이름을 한국어로 변환
 # -> 항상 API 문서와 같은지 크로스체크할 것!
 # Reference : https://github.com/koreainvestment/open-trading-api
@@ -80,3 +103,28 @@ COLUMN_TO_KOR_DICT = {
     "END_TM": "분할매수/매도 종료시간",
     "TM_DIV_TP": "시간분할타입유형",
 }
+
+# 거래 시간 전처리
+from datetime import datetime, timedelta, time, date
+def preprocess_market_time(market_time):
+    return datetime.strptime(market_time[0], "%H:%M").time(), datetime.strptime(market_time[1], "%H:%M").time()
+    start_str, end_str = market_time
+    today = date.today()
+    
+    start_time = datetime.strptime(start_str, "%H:%M").time()
+    end_time = datetime.strptime(end_str, "%H:%M").time()
+    
+    start_dt = datetime.combine(today, start_time)
+    end_dt = datetime.combine(today, end_time)
+    
+    # 자정 이후 시각 처리
+    if end_dt < start_dt:
+        end_dt += timedelta(days=1)
+        
+    return start_dt, end_dt
+
+DAY_MARKET_DT = preprocess_market_time(DAY_MARKET_TIME)
+PRE_MARKET_DT = preprocess_market_time(PRE_MARKET_TIME)
+MAIN_MARKET_DT = preprocess_market_time(MAIN_MARKET_TIME)
+AFTER_MARKET_DT = preprocess_market_time(AFTER_MARKET_TIME)
+EXTENDED_AFTER_MARKET_DT = preprocess_market_time(EXTENDED_AFTER_MARKET_TIME)

@@ -1,6 +1,6 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
 from ..BrokerCommon.BrokerData import *
-from .constants import API_URL, WS_URL, COLUMN_TO_KOR_DICT
+from .constants import API_URL, WS_URL, COLUMN_TO_KOR_DICT, DAY_MARKET_DT
 from .ws_token_manager import get_ws_token
 from .token_manager import get_access_token, get_key
 from ..Common.Debug import *
@@ -14,7 +14,7 @@ import requests
 import pandas as pd
 import traceback
 from pprint import pprint
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time, date
 
 # [ 종목 코드 파일 ]
 # 아래 파일은 업데이트될 가능성이 있음에 유의
@@ -526,7 +526,7 @@ class KISBroker(BrokerInterface):
                 return
             
             resp_dict = {COLUMN_TO_KOR_DICT[col]: value for col, value in zip(columns, real_data)}
-            
+
             normalized_data = {
                 "symbol": resp_dict["종목코드"].replace("DNAS", ""),
                 "bids": [
@@ -632,9 +632,15 @@ class KISBroker(BrokerInterface):
             print(f"❌ Error parsing trade: {e}")
     
     async def subscribe_orderbook_async(self, user_id: str, ticker_symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
-        """실시간 호가 구독(Frontend <-> Backend)"""
+        """KIS 실시간 호가 구독(Frontend <-> Backend)"""
         try:
-            ticker_symbol = "DNAS" + ticker_symbol.upper()
+            # 주간거래 시간 처리
+            market_code = "DNAS"
+            now = datetime.now()
+            if DAY_MARKET_DT[0].hour <= now.hour <= DAY_MARKET_DT[1].hour:
+                market_code = "RBAQ"
+
+            ticker_symbol = market_code + ticker_symbol.upper()
             print(ticker_symbol)
             # 웹소켓 연결
             await KISBroker._ws_connect(user_id)
@@ -681,8 +687,14 @@ class KISBroker(BrokerInterface):
                 Error("Failed to remove callback.")
 
     async def subscribe_trade_price_async(self, user_id: str, ticker_symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
-        """실시간 체결가 구독(Frontend <-> Backend)"""
-        ticker_symbol = "DNAS" + ticker_symbol.upper()
+        """KIS 실시간 체결가 구독(Frontend <-> Backend)"""
+        # 주간거래 시간 처리
+        market_code = "DNAS"
+        now = datetime.now()
+        if DAY_MARKET_DT[0].hour <= now.hour <= DAY_MARKET_DT[1].hour:
+            market_code = "RBAQ"
+
+        ticker_symbol = market_code + ticker_symbol.upper()
         try:
             # 웹소켓 연결
             await KISBroker._ws_connect(user_id)
