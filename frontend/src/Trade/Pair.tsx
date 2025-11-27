@@ -44,16 +44,6 @@ const Pair: React.FC<PairProps> = ({ broker: propBroker }) => {
   const loadFavorites = async () => {
     try {
       const token = SecureAuthService.getAccessToken();
-      if (!token) {
-        // 로그인하지 않은 경우 기본 목록 표시
-        setFavoritePairs([
-          { symbol: 'BTCUSDT', display_name: 'BTC/USDT', price: '43,250.00', change: '+2.45%', positive: true, uniqueKey: 'BTCUSDT' },
-          { symbol: 'ETHUSDT', display_name: 'ETH/USDT', price: '2,280.50', change: '+1.85%', positive: true, uniqueKey: 'ETHUSDT' },
-          { symbol: 'BNBUSDT', display_name: 'BNB/USDT', price: '315.20', change: '-0.52%', positive: false, uniqueKey: 'BNBUSDT' },
-          { symbol: 'SOLUSDT', display_name: 'SOL/USDT', price: '98.75', change: '+5.12%', positive: true, uniqueKey: 'SOLUSDT' },
-        ]);
-        return;
-      }
 
       const url = effectiveBroker 
         ? `${API_URL}/api/favorites/list?broker=${encodeURIComponent(effectiveBroker)}`
@@ -88,20 +78,9 @@ const Pair: React.FC<PairProps> = ({ broker: propBroker }) => {
         });
         
         setFavoritePairs(favoritePairsList);
-      } else {
-        // 에러 시 기본 목록 표시
-        setFavoritePairs([
-          { symbol: 'BTCUSDT', display_name: 'BTC/USDT', price: '43,250.00', change: '+2.45%', positive: true, uniqueKey: 'BTCUSDT' },
-          { symbol: 'ETHUSDT', display_name: 'ETH/USDT', price: '2,280.50', change: '+1.85%', positive: true, uniqueKey: 'ETHUSDT' },
-        ]);
       }
     } catch (error) {
       console.error('Failed to load favorites:', error);
-      // 에러 시 기본 목록 표시
-      setFavoritePairs([
-        { symbol: 'BTCUSDT', display_name: 'BTC/USDT', price: '43,250.00', change: '+2.45%', positive: true, uniqueKey: 'BTCUSDT' },
-        { symbol: 'ETHUSDT', display_name: 'ETH/USDT', price: '2,280.50', change: '+1.85%', positive: true, uniqueKey: 'ETHUSDT' },
-      ]);
     }
   };
 

@@ -61,188 +61,142 @@ class KISBroker(BrokerInterface):
         KIS 캔들 조회
         """
         try:
-            LIMIT = 100
-            symbol = symbol.upper()
-
-            end_time_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
-            # 현재 시각을 초과하는 요청 불가
-            end_time_dt = min(end_time_dt, datetime.now())
-
-            # 임의의 KST 시각을 KST 정각 시각으로 변환하고 Start Time 계산
+            # 일봉 조회
             if interval == "1d":
-                end_time_dt = end_time_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-                start_time_dt = end_time_dt + timedelta(days=-LIMIT)
-            elif interval == "1h":
-                end_time_dt = end_time_dt.replace(minute=0, second=0, microsecond=0)
-                start_time_dt = end_time_dt + timedelta(hours=-LIMIT)
-            else:
-                raise "Invalid interval."
-            
-            print("[ Param Start to End ]")
-            print(f"str : {end_time}")
-            print(f"{start_time_dt.strftime('%Y-%m-%d %H:%M:%S')} -> {end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+                LIMIT = 100
+                symbol = symbol.upper()
 
-            # DB에서 캔들 데이터 가져오기(시간의 오름차순으로 정렬되어 있음)
-            db_candles = get_candles_from_db(self.broker_name, symbol, interval, None, end_time)
-            print(f"DB Candles Size : {len(db_candles)}")
-            
-            # DB에 요청된 범위의 캔들 데이터가 존재하는 경우
-            if len(db_candles) > 0:
-                db_start_time_dt = db_candles[0]["open_time"]
-                db_end_time_dt = db_candles[-1]["open_time"]
+                end_time_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+                # 현재 시각을 초과하는 요청 불가
+                end_time_dt = min(end_time_dt, datetime.now())
 
-                # 현재 생성중인 캔들은 비교에서 제외
-                close_end_time_dt = end_time_dt
+                # 임의의 KST 시각을 KST 정각 시각으로 변환하고 Start Time 계산
                 if interval == "1d":
-                    close_end_time_dt = close_end_time_dt + timedelta(days=1)
+                    end_time_dt = end_time_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                    start_time_dt = end_time_dt + timedelta(days=-LIMIT)
                 elif interval == "1h":
-                    close_end_time_dt = close_end_time_dt + timedelta(hours=1)
-
-                compare_end_time_dt = end_time_dt
-                if datetime.now() < compare_end_time_dt:
-                    print(f"생성중인 캔들 무시")
-                    if interval == "1d":
-                        compare_end_time_dt = close_end_time_dt + timedelta(days=-2)
-                    elif interval == "1h":
-                        compare_end_time_dt = close_end_time_dt + timedelta(hours=-2)
-                print(f"compare_end_time_dt : {compare_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
-
-                # 모든 데이터가 DB에 존재하는 경우
-                if db_start_time_dt <= start_time_dt and db_end_time_dt == compare_end_time_dt:
-                    print("모든 데이터가 DB에 존재!")
-                    final_candles = db_candles
-                # 일부 데이터만 DB에 존재하는 경우
+                    end_time_dt = end_time_dt.replace(minute=0, second=0, microsecond=0)
+                    start_time_dt = end_time_dt + timedelta(hours=-LIMIT)
                 else:
-                    if db_start_time_dt <= start_time_dt:
-                        # 마지막 캔들만 필요한 경우
-                        if interval == "1d" and db_end_time_dt == (compare_end_time_dt + timedelta(days=-1)):
-                            print(f"마지막 캔들만 가져오기({interval})")
-                            api_candles = self.fetch_candles_from_api(symbol, interval, compare_end_time_dt)
-                            final_candles = db_candles + api_candles
-                        elif interval == "1h" and db_end_time_dt == (compare_end_time_dt + timedelta(hours=-1)):
-                            print(f"마지막 캔들만 가져오기({interval})")
-                            api_candles = self.fetch_candles_from_api(symbol, interval, compare_end_time_dt)
-                            final_candles = db_candles + api_candles
-                        # 다수의 캔들이 필요한 경우
+                    raise "Invalid interval."
+                
+                print("[ Param Start to End ]")
+                print(f"str : {end_time}")
+                print(f"{start_time_dt.strftime('%Y-%m-%d %H:%M:%S')} -> {end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                # DB에서 캔들 데이터 가져오기(시간의 오름차순으로 정렬되어 있음)
+                db_candles = get_candles_from_db(self.broker_name, symbol, interval, None, end_time)
+                print(f"DB Candles Size : {len(db_candles)}")
+                
+                # DB에 요청된 범위의 캔들 데이터가 존재하는 경우
+                if len(db_candles) > 0:
+                    db_start_time_dt = db_candles[0]["open_time"]
+                    db_end_time_dt = db_candles[-1]["open_time"]
+
+                    # 현재 생성중인 캔들은 비교에서 제외
+                    close_end_time_dt = end_time_dt
+                    if interval == "1d":
+                        close_end_time_dt = close_end_time_dt + timedelta(days=1)
+                    elif interval == "1h":
+                        close_end_time_dt = close_end_time_dt + timedelta(hours=1)
+
+                    compare_end_time_dt = end_time_dt
+                    if datetime.now() < compare_end_time_dt:
+                        print(f"생성중인 캔들 무시")
+                        if interval == "1d":
+                            compare_end_time_dt = close_end_time_dt + timedelta(days=-2)
+                        elif interval == "1h":
+                            compare_end_time_dt = close_end_time_dt + timedelta(hours=-2)
+                    print(f"compare_end_time_dt : {compare_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                    # 모든 데이터가 DB에 존재하는 경우
+                    if db_start_time_dt <= start_time_dt and db_end_time_dt == compare_end_time_dt:
+                        print("모든 데이터가 DB에 존재!")
+                        final_candles = db_candles
+                    # 일부 데이터만 DB에 존재하는 경우
+                    else:
+                        if db_start_time_dt <= start_time_dt:
+                            # 마지막 캔들만 필요한 경우
+                            if interval == "1d" and db_end_time_dt == (compare_end_time_dt + timedelta(days=-1)):
+                                print(f"마지막 캔들만 가져오기({interval})")
+                                api_candles = self.fetch_candles_from_api(symbol, interval, compare_end_time_dt)
+                                final_candles = db_candles + api_candles
+                            elif interval == "1h" and db_end_time_dt == (compare_end_time_dt + timedelta(hours=-1)):
+                                print(f"마지막 캔들만 가져오기({interval})")
+                                api_candles = self.fetch_candles_from_api(symbol, interval, compare_end_time_dt)
+                                final_candles = db_candles + api_candles
+                            # 다수의 캔들이 필요한 경우
+                            else:
+                                new_end_time_dt = end_time_dt
+                                if interval == "1d":
+                                    new_end_time_dt = new_end_time_dt + timedelta(days=1)
+                                elif interval == "1h":
+                                    new_end_time_dt = new_end_time_dt + timedelta(hours=1)
+                                
+                                print(f"[ 부족분 범위 ]")
+                                print(f" -> {new_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+                                
+                                # 부족분 데이터 요청
+                                api_candles = self.fetch_candles_from_api(symbol, interval, new_end_time_dt)
+                                if len(api_candles) > 0:
+                                    print("[ Fetched Start to End ]")
+                                    print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+                                    
+                                    # DB에 캔들 데이터 저장
+                                    insert_candles_to_db(api_candles)
+                                    # DB에 저장된 캔들 데이터에 API로 받은 캔들 데이터를 결합
+                                    final_candles = db_candles + api_candles
+                        # 전체 데이터 요청
                         else:
-                            new_end_time_dt = end_time_dt
-                            if interval == "1d":
-                                new_end_time_dt = new_end_time_dt + timedelta(days=1)
-                            elif interval == "1h":
-                                new_end_time_dt = new_end_time_dt + timedelta(hours=1)
-                            
-                            print(f"[ 부족분 범위 ]")
-                            print(f" -> {new_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
-                            
-                            # 부족분 데이터 요청
-                            api_candles = self.fetch_candles_from_api(symbol, interval, new_end_time_dt)
+                            api_candles = self.fetch_candles_from_api(symbol, interval, end_time_dt)
                             if len(api_candles) > 0:
                                 print("[ Fetched Start to End ]")
                                 print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
                                 
                                 # DB에 캔들 데이터 저장
                                 insert_candles_to_db(api_candles)
-                                # DB에 저장된 캔들 데이터에 API로 받은 캔들 데이터를 결합
-                                final_candles = db_candles + api_candles
-                    # 전체 데이터 요청
-                    else:
-                        api_candles = self.fetch_candles_from_api(symbol, interval, end_time_dt)
-                        if len(api_candles) > 0:
-                            print("[ Fetched Start to End ]")
-                            print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
-                            
-                            # DB에 캔들 데이터 저장
-                            insert_candles_to_db(api_candles)
-                            final_candles = api_candles
-                        else:
-                            print("[ 캔들 요청 실패! ]")
-                            final_candles = []
+                                final_candles = api_candles
+                            else:
+                                print("[ 캔들 요청 실패! ]")
+                                final_candles = []
 
-            # DB에 요청된 범위의 캔들 데이터가 없는 경우
-            else:
-                # 전체 데이터 요청
-                api_candles = self.fetch_candles_from_api(symbol, interval, end_time_dt)
-                if len(api_candles) > 0:
-                    print("[ Fetched Start to End ]")
-                    print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
-                    
-                    # DB에 캔들 데이터 저장
-                    insert_candles_to_db(api_candles)
-                    final_candles = api_candles
+                # DB에 요청된 범위의 캔들 데이터가 없는 경우
                 else:
-                    print("[ 캔들 요청 실패! ]")
-                    final_candles = []
+                    # 전체 데이터 요청
+                    api_candles = self.fetch_candles_from_api(symbol, interval, end_time_dt)
+                    if len(api_candles) > 0:
+                        print("[ Fetched Start to End ]")
+                        print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+                        
+                        # DB에 캔들 데이터 저장
+                        insert_candles_to_db(api_candles)
+                        final_candles = api_candles
+                    else:
+                        print("[ 캔들 요청 실패! ]")
+                        final_candles = []
 
-            # 중복 제거를 위한 딕셔너리 사용 (time을 키로 사용)
-            unique_candles = {}
-            for candle in final_candles:
-                candle_time = int(candle["open_time"].timestamp())
-                # 딕셔너리에 저장하여 중복된 시간의 캔들은 덮어씌움 (또는 건너뛰기 가능)
-                unique_candles[candle_time] = {
-                    "time": candle_time,
-                    "open": float(candle["open"]),
-                    "high": float(candle["high"]),
-                    "low": float(candle["low"]),
-                    "close": float(candle["close"]),
-                    "volume": float(candle["volume"]) if candle["volume"] != None else 0.0,
-                }
+                # 중복 제거를 위한 딕셔너리 사용 (time을 키로 사용)
+                unique_candles = {}
+                for candle in final_candles:
+                    candle_time = int(candle["open_time"].timestamp())
+                    # 딕셔너리에 저장하여 중복된 시간의 캔들은 덮어씌움 (또는 건너뛰기 가능)
+                    unique_candles[candle_time] = {
+                        "time": candle_time,
+                        "open": float(candle["open"]),
+                        "high": float(candle["high"]),
+                        "low": float(candle["low"]),
+                        "close": float(candle["close"]),
+                        "volume": float(candle["volume"]) if candle["volume"] != None else 0.0,
+                    }
 
-            normalized_candles = list(unique_candles.values())
+                normalized_candles = list(unique_candles.values())
 
-            # open_time(time) 기준 오름차순 정렬
-            normalized_candles.sort(key=lambda x: x["time"])
+                # open_time(time) 기준 오름차순 정렬
+                normalized_candles.sort(key=lambda x: x["time"])
 
-            print(f"Normalized Candles Size : {len(normalized_candles)}")
-            return normalized_candles
-
-            # 일봉 조회
-            if interval == "1d":
-                # KST datetime 문자열 형식 변환(YYYYMMDD)
-                end_time_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
-                end_time_str = end_time_dt.strftime("%Y%m%d")
-
-                url = API_URL + "/uapi/overseas-price/v1/quotations/dailyprice"
-                params = {
-                    "AUTH": "",
-                    "EXCD": "NAS",
-                    "SYMB": symbol.upper(),
-                    "GUBN": "0",
-                    "BYMD": end_time_str,
-                    "MODP": "1",
-                }
-
-                headers = {
-                    "content-type": "application/json; charset=utf-8",
-                    "authorization": "Bearer " + get_access_token(self.user_id),
-                    "appkey": get_key(self.user_id)["app_key"],
-                    "appsecret": get_key(self.user_id)["sec_key"],
-                    "tr_id": "HHDFS76240000",
-                    "custtype": "P",
-                }
-
-                resp = requests.get(url, params=params, headers=headers,  timeout=10)
-                resp.raise_for_status()     
-                resp_json = resp.json()
-
-                #resp_json["output2"].reverse()
-                candles = []
-                for row in resp_json["output2"]:
-                    open_time_date = datetime.strptime(row["xymd"], "%Y%m%d")
-                    open_time_timestamp = open_time_date.timestamp()
-
-                    candles.append({
-                        # lightweight-charts는 초 단위 timestamp 필요
-                        "time": int(open_time_timestamp),
-                        "open": float(row["open"]),
-                        "high": float(row["high"]),
-                        "low": float(row["low"]),
-                        "close": float(row["clos"]),
-                        # 거래금액 (Quote Asset Volume)
-                        "volume": float(row["tvol"]),
-                    })
-
-                return candles
-            # 시봉 조회
+                print(f"Normalized Candles Size : {len(normalized_candles)}")
+                return normalized_candles
+            # 시간봉 조회
             elif interval == "1h":
                 # KST datetime 문자열 형식 변환(YYYYMMDD)
                 end_time_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
