@@ -11,7 +11,7 @@ def get_candles_from_db(
     interval: str,
     start_time: datetime = None,
     end_time: datetime = None,
-    limit: int = 5000
+    limit: int = 1000
 ) -> List[Dict[str, Any]]:
     """
     DB로부터 캔들 데이터를 가져옴
@@ -45,7 +45,8 @@ def get_candles_from_db(
             query += " AND open_time <= %s"
             params.append(end_time)
         
-        query += " ORDER BY open_time ASC LIMIT %s"
+        # 가져오는 것은 최신 데이터부터 가져오기
+        query += " ORDER BY open_time DESC LIMIT %s"
         params.append(limit)
         
         cursor.execute(query, params)
@@ -74,6 +75,8 @@ def get_candles_from_db(
                 "inserted_at": row["inserted_at"],
             })
         
+        # 정렬은 오름차순으로
+        candles.reverse()
         return candles
         
     except Exception as e:
@@ -142,8 +145,6 @@ def insert_candles_to_db(candles: List[Dict[str, Any]]):
             conn.commit()
             cursor.close()
             conn.close()
-            
-            Info(f"Done!")
             
         except Exception as e:
             Error(f"Exception")

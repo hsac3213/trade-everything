@@ -1,4 +1,5 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
+from ..BrokerCommon.BrokerData import *
 from .constants import API_URL, WS_URL, COLUMN_TO_KOR_DICT
 from .ws_token_manager import get_ws_token
 from .token_manager import get_access_token, get_key
@@ -13,7 +14,7 @@ import requests
 import pandas as pd
 import traceback
 from pprint import pprint
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # [ 종목 코드 파일 ]
 # 아래 파일은 업데이트될 가능성이 있음에 유의
@@ -50,77 +51,149 @@ class KISBroker(BrokerInterface):
     
     def __init__(self, user_id: str = None):
         self.user_id = user_id
+        self.broker_name = "KIS"
 
         #print("[ KISBroker ]")
         #print(f"user_id : {user_id}")
 
-    def place_order(self, order) -> List[Dict[str, Any]]:
-        """
-        KIS 주문 전송
-        """
-        pass
-        #return place_order(self.user_id, order)
-    
-    def cancel_order(self, order) -> List[Dict[str, Any]]:
-        """
-        KIS 주문 취소
-        """
-        return cancel_order(self.user_id, order)
-
-    def get_orders(self):
-        """
-        KIS 미체결 주문 목록
-        """
-        try:
-            params = {
-                "CANO": get_key(self.user_id)["account_number_0"],
-                "ACNT_PRDT_CD": get_key(self.user_id)["account_number_1"],
-                "OVRS_EXCG_CD": "NASD",
-                "SORT_SQN": "DS",
-                "CTX_AREA_FK200": "",
-                "CTX_AREA_NK200": "",
-            }
-
-            headers = {
-                "content-type": "application/json; charset=utf-8",
-                "authorization": "Bearer " + get_access_token(self.user_id),
-                "appkey": get_key(self.user_id)["app_key"],
-                "appsecret": get_key(self.user_id)["sec_key"],
-                "tr_id": "TTTS3018R",
-                "custtype": "P",
-            }
-
-            url = API_URL + f"/uapi/overseas-stock/v1/trading/inquire-nccs"
-            resp = requests.get(url, headers=headers, params=params, timeout=10)
-            resp_json = resp.json()
-            pprint(resp_json)
-
-            orders = []
-            for order in resp_json["output"]:
-                orders.append({
-                    "order_id": order["odno"],
-                    "symbol": order["pdno"],
-                    # BUY(02) or SELL(01)
-                    "side": "buy" if str(order["sll_buy_dvsn_cd"]) == "02" else "sell",
-                    "price": order["ft_ord_unpr3"],
-                    "amount": order["nccs_qty"],
-                })
-
-            return orders
-        except requests.exceptions.RequestException as e:
-            Error("KIS requests.exceptions.RequestException")
-            print(e)
-            return []
-        except Exception as e:
-            Error("KIS Exception")
-            print(e)
-            traceback.print_exc()
-            return []
-
     def get_candle(self, symbol: str, interval: str, end_time: str = None):
+        """
+        KIS 캔들 조회
+        """
         try:
+            LIMIT = 100
             symbol = symbol.upper()
-            interval = interval.lower()
+
+            end_time_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+            # 현재 시각을 초과하는 요청 불가
+            end_time_dt = min(end_time_dt, datetime.now())
+
+            # 임의의 KST 시각을 KST 정각 시각으로 변환하고 Start Time 계산
+            if interval == "1d":
+                end_time_dt = end_time_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                start_time_dt = end_time_dt + timedelta(days=-LIMIT)
+            elif interval == "1h":
+                end_time_dt = end_time_dt.replace(minute=0, second=0, microsecond=0)
+                start_time_dt = end_time_dt + timedelta(hours=-LIMIT)
+            else:
+                raise "Invalid interval."
+            
+            print("[ Param Start to End ]")
+            print(f"str : {end_time}")
+            print(f"{start_time_dt.strftime('%Y-%m-%d %H:%M:%S')} -> {end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+
+            # DB에서 캔들 데이터 가져오기(시간의 오름차순으로 정렬되어 있음)
+            db_candles = get_candles_from_db(self.broker_name, symbol, interval, None, end_time)
+            print(f"DB Candles Size : {len(db_candles)}")
+            
+            # DB에 요청된 범위의 캔들 데이터가 존재하는 경우
+            if len(db_candles) > 0:
+                db_start_time_dt = db_candles[0]["open_time"]
+                db_end_time_dt = db_candles[-1]["open_time"]
+
+                # 현재 생성중인 캔들은 비교에서 제외
+                close_end_time_dt = end_time_dt
+                if interval == "1d":
+                    close_end_time_dt = close_end_time_dt + timedelta(days=1)
+                elif interval == "1h":
+                    close_end_time_dt = close_end_time_dt + timedelta(hours=1)
+
+                compare_end_time_dt = end_time_dt
+                if datetime.now() < compare_end_time_dt:
+                    print(f"생성중인 캔들 무시")
+                    if interval == "1d":
+                        compare_end_time_dt = close_end_time_dt + timedelta(days=-2)
+                    elif interval == "1h":
+                        compare_end_time_dt = close_end_time_dt + timedelta(hours=-2)
+                print(f"compare_end_time_dt : {compare_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+
+                # 모든 데이터가 DB에 존재하는 경우
+                if db_start_time_dt <= start_time_dt and db_end_time_dt == compare_end_time_dt:
+                    print("모든 데이터가 DB에 존재!")
+                    final_candles = db_candles
+                # 일부 데이터만 DB에 존재하는 경우
+                else:
+                    if db_start_time_dt <= start_time_dt:
+                        # 마지막 캔들만 필요한 경우
+                        if interval == "1d" and db_end_time_dt == (compare_end_time_dt + timedelta(days=-1)):
+                            print(f"마지막 캔들만 가져오기({interval})")
+                            api_candles = self.fetch_candles_from_api(symbol, interval, compare_end_time_dt)
+                            final_candles = db_candles + api_candles
+                        elif interval == "1h" and db_end_time_dt == (compare_end_time_dt + timedelta(hours=-1)):
+                            print(f"마지막 캔들만 가져오기({interval})")
+                            api_candles = self.fetch_candles_from_api(symbol, interval, compare_end_time_dt)
+                            final_candles = db_candles + api_candles
+                        # 다수의 캔들이 필요한 경우
+                        else:
+                            new_end_time_dt = end_time_dt
+                            if interval == "1d":
+                                new_end_time_dt = new_end_time_dt + timedelta(days=1)
+                            elif interval == "1h":
+                                new_end_time_dt = new_end_time_dt + timedelta(hours=1)
+                            
+                            print(f"[ 부족분 범위 ]")
+                            print(f" -> {new_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+                            
+                            # 부족분 데이터 요청
+                            api_candles = self.fetch_candles_from_api(symbol, interval, new_end_time_dt)
+                            if len(api_candles) > 0:
+                                print("[ Fetched Start to End ]")
+                                print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+                                
+                                # DB에 캔들 데이터 저장
+                                insert_candles_to_db(api_candles)
+                                # DB에 저장된 캔들 데이터에 API로 받은 캔들 데이터를 결합
+                                final_candles = db_candles + api_candles
+                    # 전체 데이터 요청
+                    else:
+                        api_candles = self.fetch_candles_from_api(symbol, interval, end_time_dt)
+                        if len(api_candles) > 0:
+                            print("[ Fetched Start to End ]")
+                            print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+                            
+                            # DB에 캔들 데이터 저장
+                            insert_candles_to_db(api_candles)
+                            final_candles = api_candles
+                        else:
+                            print("[ 캔들 요청 실패! ]")
+                            final_candles = []
+
+            # DB에 요청된 범위의 캔들 데이터가 없는 경우
+            else:
+                # 전체 데이터 요청
+                api_candles = self.fetch_candles_from_api(symbol, interval, end_time_dt)
+                if len(api_candles) > 0:
+                    print("[ Fetched Start to End ]")
+                    print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+                    
+                    # DB에 캔들 데이터 저장
+                    insert_candles_to_db(api_candles)
+                    final_candles = api_candles
+                else:
+                    print("[ 캔들 요청 실패! ]")
+                    final_candles = []
+
+            # 중복 제거를 위한 딕셔너리 사용 (time을 키로 사용)
+            unique_candles = {}
+            for candle in final_candles:
+                candle_time = int(candle["open_time"].timestamp())
+                # 딕셔너리에 저장하여 중복된 시간의 캔들은 덮어씌움 (또는 건너뛰기 가능)
+                unique_candles[candle_time] = {
+                    "time": candle_time,
+                    "open": float(candle["open"]),
+                    "high": float(candle["high"]),
+                    "low": float(candle["low"]),
+                    "close": float(candle["close"]),
+                    "volume": float(candle["volume"]) if candle["volume"] != None else 0.0,
+                }
+
+            normalized_candles = list(unique_candles.values())
+
+            # open_time(time) 기준 오름차순 정렬
+            normalized_candles.sort(key=lambda x: x["time"])
+
+            print(f"Normalized Candles Size : {len(normalized_candles)}")
+            return normalized_candles
 
             # 일봉 조회
             if interval == "1d":
@@ -223,6 +296,8 @@ class KISBroker(BrokerInterface):
                     })
 
                 return candles
+            else:
+                return []
             
         except requests.exceptions.RequestException as e:
             Error("[ KIS ]")
@@ -230,6 +305,148 @@ class KISBroker(BrokerInterface):
             return []
         except Exception as e:
             Error("[ KIS ]")    
+            traceback.print_exc()
+            return []
+        
+    def fetch_candles_from_api(self, symbol: str, interval: str, end_time_dt: datetime = datetime.now()) -> List[Dict[str, Any]]:
+        """
+        KIS API에서 캔들 데이터 조회
+        """
+        try:
+            Info("[ Requested Candles ]")
+            print(f"interval : {interval}")
+            print(f"end_time_dt : {end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+
+            # 임의의 KST 시각을 KST 정각 시각으로 변환
+            api_end_time_dt = None
+            if interval == "1d":
+                api_end_time_dt = end_time_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif interval == "1h":
+                api_end_time_dt = end_time_dt.replace(minute=0, second=0, microsecond=0)
+            else:
+                raise "Invalid interval."
+            
+            print(f"api_end_time_dt : {api_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # 일봉 조회
+            if interval == "1d":
+                # KST datetime 형식 변환(YYYYMMDD)
+                end_time_str = api_end_time_dt.strftime("%Y%m%d")
+
+                url = API_URL + "/uapi/overseas-price/v1/quotations/dailyprice"
+                params = {
+                    "AUTH": "",
+                    "EXCD": "NAS",
+                    "SYMB": symbol.upper(),
+                    "GUBN": "0",
+                    "BYMD": end_time_str,
+                    "MODP": "1",
+                }
+
+                headers = {
+                    "content-type": "application/json; charset=utf-8",
+                    "authorization": "Bearer " + get_access_token(self.user_id),
+                    "appkey": get_key(self.user_id)["app_key"],
+                    "appsecret": get_key(self.user_id)["sec_key"],
+                    "tr_id": "HHDFS76240000",
+                    "custtype": "P",
+                }
+
+                resp = requests.get(url, params=params, headers=headers,  timeout=10)
+                resp.raise_for_status()     
+                resp_json = resp.json()
+
+                #resp_json["output2"].reverse()
+                candles = []
+                for row in resp_json["output2"]:
+                    candles.append({
+                        "broker_name": self.broker_name,
+                        "symbol": symbol,
+                        "interval": interval,
+                        "open_time": datetime.strptime(row["xymd"], "%Y%m%d"),
+                        "close_time": datetime.strptime(row["xymd"], "%Y%m%d") + timedelta(days=1) - timedelta(microseconds=1),
+                        "open": float(row["open"]),
+                        "high": float(row["high"]),
+                        "low": float(row["low"]),
+                        "close": float(row["clos"]),
+                        "volume": float(row["tvol"]),
+                        "quote_volume": float(row["tamt"]),
+                        "trade_count": 0,
+                        "taker_buy_base_asset_volume": float(0.0),
+                        "taker_buy_quote_asset_volume": float(0.0),
+                    })
+
+                print(f"len(candles) : {len(candles)}")
+                if len(candles) > 0:
+                    print(f"First Candle : {candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"Last Candle : {candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+
+                return candles
+        except Exception as e:
+            Error(f"Exception")
+            traceback.print_exc()
+            return []
+
+    def place_order(self, order) -> List[Dict[str, Any]]:
+        """
+        KIS 주문 전송
+        """
+        pass
+        #return place_order(self.user_id, order)
+    
+    def cancel_order(self, order) -> List[Dict[str, Any]]:
+        """
+        KIS 주문 취소
+        """
+        return cancel_order(self.user_id, order)
+
+    def get_orders(self):
+        """
+        KIS 미체결 주문 목록
+        """
+        try:
+            params = {
+                "CANO": get_key(self.user_id)["account_number_0"],
+                "ACNT_PRDT_CD": get_key(self.user_id)["account_number_1"],
+                "OVRS_EXCG_CD": "NASD",
+                "SORT_SQN": "DS",
+                "CTX_AREA_FK200": "",
+                "CTX_AREA_NK200": "",
+            }
+
+            headers = {
+                "content-type": "application/json; charset=utf-8",
+                "authorization": "Bearer " + get_access_token(self.user_id),
+                "appkey": get_key(self.user_id)["app_key"],
+                "appsecret": get_key(self.user_id)["sec_key"],
+                "tr_id": "TTTS3018R",
+                "custtype": "P",
+            }
+
+            url = API_URL + f"/uapi/overseas-stock/v1/trading/inquire-nccs"
+            resp = requests.get(url, headers=headers, params=params, timeout=10)
+            resp_json = resp.json()
+            pprint(resp_json)
+
+            orders = []
+            for order in resp_json["output"]:
+                orders.append({
+                    "order_id": order["odno"],
+                    "symbol": order["pdno"],
+                    # BUY(02) or SELL(01)
+                    "side": "buy" if str(order["sll_buy_dvsn_cd"]) == "02" else "sell",
+                    "price": order["ft_ord_unpr3"],
+                    "amount": order["nccs_qty"],
+                })
+
+            return orders
+        except requests.exceptions.RequestException as e:
+            Error("KIS requests.exceptions.RequestException")
+            print(e)
+            return []
+        except Exception as e:
+            Error("KIS Exception")
+            print(e)
             traceback.print_exc()
             return []
 

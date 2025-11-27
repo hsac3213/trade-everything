@@ -65,11 +65,15 @@ class BinanceBroker(BrokerInterface):
             
             print("[ Param Start to End ]")
             print(f"str : {end_time}")
-            print(f"{start_time_dt.strftime('%Y-%m-%d %H:%M:%S')} -> {end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            #print(f"{start_time_dt.strftime('%Y-%m-%d %H:%M:%S')} -> {end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
 
             # DB에서 캔들 데이터 가져오기(시간의 오름차순으로 정렬되어 있음)
             db_candles = get_candles_from_db("Binance", symbol, interval, None, end_time)
+            print("[ DB ]")
             print(f"DB Candles Size : {len(db_candles)}")
+            if len(db_candles) > 0:
+                print(f"DB Start Candle : {db_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"DB End Candle : {db_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
             
             # DB에 요청된 범위의 캔들 데이터가 존재하는 경우
             if len(db_candles) > 0:
@@ -102,34 +106,43 @@ class BinanceBroker(BrokerInterface):
                         # 마지막 캔들만 필요한 경우
                         if interval == "1d" and db_end_time_dt == (compare_end_time_dt + timedelta(days=-1)):
                             print(f"마지막 캔들만 가져오기({interval})")
-                            api_candles = self.fetch_candles_from_api(symbol, interval, None, compare_end_time_dt, limit=1)
+                            api_candles = self.fetch_candles_from_api(symbol, interval, None, end_time_dt, limit=1)
                             final_candles = db_candles + api_candles
                         elif interval == "1h" and db_end_time_dt == (compare_end_time_dt + timedelta(hours=-1)):
                             print(f"마지막 캔들만 가져오기({interval})")
-                            api_candles = self.fetch_candles_from_api(symbol, interval, None, compare_end_time_dt, limit=1)
+                            api_candles = self.fetch_candles_from_api(symbol, interval, None, end_time_dt, limit=1)
                             final_candles = db_candles + api_candles
-                        # 다수의 캔들이 필요한 경우
+                        # DB에 캐싱된 캔들 데이터보다 미래 시점의 캔들이 필요한 경우
                         else:
-                            new_end_time_dt = end_time_dt
+                            new_start_time_dt = db_end_time_dt
                             if interval == "1d":
-                                new_end_time_dt = new_end_time_dt + timedelta(days=1)
+                                new_start_time_dt = new_start_time_dt + timedelta(days=1)
                             elif interval == "1h":
-                                new_end_time_dt = new_end_time_dt + timedelta(hours=1)
+                                new_start_time_dt = new_start_time_dt + timedelta(hours=1)
+                        
+                            api_candles = self.fetch_candles_from_api(symbol, interval, new_start_time_dt, end_time_dt)
+                            final_candles = db_candles + api_candles
+                    # 다수의 캔들이 필요한 경우
+                    else:
+                        new_end_time_dt = db_start_time_dt
+                        if interval == "1d":
+                            new_end_time_dt = new_end_time_dt + timedelta(days=-1)
+                        elif interval == "1h":
+                            new_end_time_dt = new_end_time_dt + timedelta(hours=-1)
+                        
+                        print(f"[ 부족분 범위 ]")
+                        print(f"? -> {new_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+                        
+                        # 부족분 데이터 요청
+                        api_candles = self.fetch_candles_from_api(symbol, interval, None, new_end_time_dt, limit=1000)
+                        if len(api_candles) > 0:
+                            print("[ Fetched Start to End ]")
+                            print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
                             
-                            print(f"[ 부족분 범위 ]")
-                            print(f" -> {new_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
-                            
-                            # 부족분 데이터 요청
-                            api_candles = self.fetch_candles_from_api(symbol, interval, None, new_end_time_dt, limit=1000)
-                            if len(api_candles) > 0:
-                                print("[ Fetched Start to End ]")
-                                print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
-                                
-                                # DB에 캔들 데이터 저장
-                                insert_candles_to_db(api_candles)
-                                # DB에 저장된 캔들 데이터에 API로 받은 캔들 데이터를 결합
-                                final_candles = db_candles + api_candles
-
+                            # DB에 캔들 데이터 저장
+                            insert_candles_to_db(api_candles)
+                        # DB에 저장된 캔들 데이터에 API로 받은 캔들 데이터를 결합
+                        final_candles = db_candles + api_candles
             # DB에 요청된 범위의 캔들 데이터가 없는 경우
             else:
                 # 전체 데이터 요청
@@ -164,7 +177,7 @@ class BinanceBroker(BrokerInterface):
             # open_time(time) 기준 오름차순 정렬
             normalized_candles.sort(key=lambda x: x["time"])
 
-            print(f"Normalized Candles Size : {len(normalized_candles)}")
+            #print(f"Normalized Candles Size : {len(normalized_candles)}")
             return normalized_candles
             
         except requests.exceptions.RequestException as e:
@@ -183,12 +196,14 @@ class BinanceBroker(BrokerInterface):
         (과거 데이터가 먼저)
         """
         try:
+            """
             Info("[ Requested Candles ]")
             print(f"interval : {interval}")
             if start_time_dt != None:
                 print(f"start_time_dt : {start_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"end_time_dt : {end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"limit : {limit}")
+            """
 
             limit = min(limit, 1000)
             limit = max(limit, 1)
@@ -607,7 +622,7 @@ class BinanceBroker(BrokerInterface):
                     "id": 1
                 }
                 await ws.send(json.dumps(payload))
-                print(f"✅ Subscribed to Binance {symbol} orderbook")
+                #print(f"Subscribed to Binance {symbol} orderbook")
 
                 while True:
                     try:
@@ -663,7 +678,7 @@ class BinanceBroker(BrokerInterface):
                     "id": 1
                 }
                 await ws.send(json.dumps(payload))
-                print(f"✅ Subscribed to Binance {symbol} trade")
+                #print(f"Subscribed to Binance {symbol} trade")
 
                 while True:
                     try:
