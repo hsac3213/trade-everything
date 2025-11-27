@@ -238,8 +238,7 @@ async def get_orders(broker_name: str, current_user: dict = Depends(get_current_
     try:
         broker = BrokerFactory.create_broker(broker_name, current_user["user_id"])
         orders = broker.get_orders()
-        print("[ orders ]")
-        print(orders)
+        # Info("") ; print(orders)
         return {
             "message": "success",
             "broker": broker_name,
