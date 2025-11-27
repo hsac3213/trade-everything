@@ -6,6 +6,9 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
+from pprint import pprint
+
+from ..Binance.BinanceBroker import *
 
 # 테스트
 from ..KIS.token_manager import get_key
@@ -696,7 +699,13 @@ async def websocket_proxy(ws: WebSocket):
 def main():
     Info(f"Starting {SERVER_NAME}...")
 
-    uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="info")
+    #broker = BinanceBroker("2")
+    #broker.get_candle("BTCUSDT", "1d", "2025-11-28 15:28:15")
+    #candles = broker.fetch_candles_from_api("BTCUSDT", "1d", None, datetime.strptime("2025-11-27 0:11:00", "%Y-%m-%d %H:%M:%S"))
+    #broker.get_candle("BTCUSDT", "1d", "2025-11-27 0:11:00")
+
+    #uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="error")
 
 if __name__ == "__main__":
     main()

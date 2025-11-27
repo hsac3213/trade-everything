@@ -37,23 +37,14 @@ class CandleDatafeed {
     const unit = interval.slice(-1).toLowerCase();
     
     switch (unit) {
-      case 's': // 초봉: 1시간 전
-        now.setHours(now.getHours() - 1);
-        break;
-      case 'm': // 분봉: 12시간 전
-        now.setHours(now.getHours() - 12);
-        break;
       case 'h': // 시간봉: 7일 전
         now.setDate(now.getDate() - 7);
         break;
       case 'd': // 일봉: 30일 전
         now.setDate(now.getDate() - 30);
         break;
-      case 'w': // 주봉: 90일 전
-        now.setDate(now.getDate() - 90);
-        break;
-      default: // 기본: 7일 전
-        now.setDate(now.getDate() - 7);
+      default: // 기본: 30일 전
+        now.setDate(now.getDate() - 30);
     }
     
     return now;
@@ -78,11 +69,8 @@ class CandleDatafeed {
         console.log("Candle Interval : " + interval);
         
         switch (unit) {
-          case 's': return value * 1000;
-          case 'm': return value * 60 * 1000;
           case 'h': return value * 60 * 60 * 1000;
           case 'd': return value * 24 * 60 * 60 * 1000;
-          case 'w': return value * 7 * 24 * 60 * 60 * 1000;
           default: return 60 * 60 * 1000;
         }
       };
@@ -111,8 +99,11 @@ class CandleDatafeed {
       console.log("intervalMs * numberOfExtraBars : " + (intervalMs * numberOfExtraBars));
       console.log("endDate : " + endDate);
       
-      const endTime = endDate.toISOString().slice(0, 19).replace('T', ' ');
-      console.log("endTime : " + endTime);
+      // 백엔드가 KST 입력을 기대하므로 UTC 시간을 KST 시간 문자열로 변환하여 전송
+      const kstOffset = 9 * 60 * 60 * 1000;
+      const kstDate = new Date(endDate.getTime() + kstOffset);
+      const endTime = kstDate.toISOString().slice(0, 19).replace('T', ' ');
+      console.log("endTime (KST) : " + endTime);
       
       // API 호출
       const url = `${CANDLE_API_URL}/${this._broker}?symbol=${this._symbol}&interval=${this._interval}&end_time=${encodeURIComponent(endTime)}`;

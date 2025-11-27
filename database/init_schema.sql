@@ -70,6 +70,8 @@ CREATE TABLE candle_data (
     volume NUMERIC(32,12) NOT NULL,      -- 거래량
     quote_volume NUMERIC(32,12),         -- 거래대금 (선택)
     trade_count INTEGER,                 -- 거래 건수 (선택)
+    taker_buy_base_asset_volume NUMERIC(32,12),
+    taker_buy_quote_asset_volume NUMERIC(32,12),
     inserted_at TIMESTAMP DEFAULT now(), -- 기록 시각
     UNIQUE (broker_name, symbol, interval, open_time)
 );

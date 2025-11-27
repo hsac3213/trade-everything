@@ -15,14 +15,14 @@ interface ChartPlaceholderProps {
 }
 
 const ChartPlaceholder: React.FC<ChartPlaceholderProps> = ({ broker, symbol, selectedPrice }) => {
-  const [timeframe, setTimeframe] = useState<string>('1D');
+  const [timeframe, setTimeframe] = useState<string>('1d');
   const [refreshOpenOrders, setRefreshOpenOrders] = useState<(() => void) | null>(null);
   
   console.log(`📊 [Trade.tsx] ChartPlaceholder rendering with broker: ${broker}, symbol: ${symbol}`);
   
   const timeframes = [
-    { value: '1H', label: '1h' },
-    { value: '1D', label: '1d' },
+    { value: '1h', label: '1h' },
+    { value: '1d', label: '1d' },
   ];
 
   return (

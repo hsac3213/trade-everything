@@ -1,5 +1,6 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
 from ..BrokerCommon.DataTypes import *
+from ..BrokerCommon.BrokerData import *
 from .common import API_URL, WSS_URL, WS_URL, get_key
 from .common import get_signed_payload_ws, get_signed_payload_post
 from .price import get_realtime_orderbook_price, get_realtime_trade_price
@@ -11,7 +12,7 @@ import websockets
 import json
 import asyncio
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 from urllib.parse import urlencode
 import uuid
@@ -39,6 +40,217 @@ class BinanceBroker(BrokerInterface):
         self.orderbook_callback = None
 
         self.ws_orderbook = None
+
+    def get_candle(self, symbol: str, interval: str, end_time: str = None):
+        """
+        Binance 캔들 조회
+        """
+        try:
+            LIMIT = 1000
+            symbol = symbol.upper()
+
+            end_time_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+            # 현재 시각을 초과하는 요청 불가
+            end_time_dt = min(end_time_dt, datetime.now())
+
+            # 임의의 KST 시각을 KST 정각 시각으로 변환하고 Start Time 계산
+            if interval == "1d":
+                end_time_dt = end_time_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                start_time_dt = end_time_dt + timedelta(days=-LIMIT)
+            elif interval == "1h":
+                end_time_dt = end_time_dt.replace(minute=0, second=0, microsecond=0)
+                start_time_dt = end_time_dt + timedelta(hours=-LIMIT)
+            else:
+                raise "Invalid interval."
+            
+            print("[ Param Start to End ]")
+            print(f"str : {end_time}")
+            print(f"{start_time_dt.strftime('%Y-%m-%d %H:%M:%S')} -> {end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+
+            # DB에서 캔들 데이터 가져오기(시간의 오름차순으로 정렬되어 있음)
+            db_candles = get_candles_from_db("Binance", symbol, interval, None, end_time)
+            print(f"DB Candles Size : {len(db_candles)}")
+            
+            # DB에 요청된 범위의 캔들 데이터가 존재하는 경우
+            if len(db_candles) > 0:
+                db_start_time_dt = db_candles[0]["open_time"]
+                db_end_time_dt = db_candles[-1]["open_time"]
+
+                # 현재 생성중인 캔들은 비교에서 제외
+                close_end_time_dt = end_time_dt
+                if interval == "1d":
+                    close_end_time_dt = close_end_time_dt + timedelta(days=1)
+                elif interval == "1h":
+                    close_end_time_dt = close_end_time_dt + timedelta(hours=1)
+
+                compare_end_time_dt = end_time_dt
+                if datetime.now() < compare_end_time_dt:
+                    print(f"생성중인 캔들 무시")
+                    if interval == "1d":
+                        compare_end_time_dt = close_end_time_dt + timedelta(days=-2)
+                    elif interval == "1h":
+                        compare_end_time_dt = close_end_time_dt + timedelta(hours=-2)
+
+                # 모든 데이터가 DB에 존재하는 경우
+                if db_start_time_dt == start_time_dt and db_end_time_dt == compare_end_time_dt:
+                    print("모든 데이터가 DB에 존재!")
+                    final_candles = db_candles
+                # 일부 데이터만 DB에 존재하는 경우
+                else:
+                    # 부족분 요청
+                    new_end_time_dt = end_time_dt
+                    if interval == "1d":
+                        new_end_time_dt = new_end_time_dt + timedelta(days=1)
+                    elif interval == "1h":
+                        new_end_time_dt = new_end_time_dt + timedelta(hours=1)
+                    
+                    print(f"[ 부족분 범위 ]")
+                    print(f" -> {new_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+                    
+                    # 부족분 데이터 요청
+                    api_candles = self.fetch_candles_from_api(symbol, interval, None, new_end_time_dt, limit=1000)
+                    if len(api_candles) > 0:
+                        print("[ Fetched Start to End ]")
+                        print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+                        
+                        # DB에 캔들 데이터 저장
+                        insert_candles_to_db(api_candles)
+                        # DB에 저장된 캔들 데이터에 API로 받은 캔들 데이터를 결합
+                        final_candles = db_candles + api_candles
+
+            # DB에 요청된 범위의 캔들 데이터가 없는 경우
+            else:
+                # 전체 데이터 요청
+                api_candles = self.fetch_candles_from_api(symbol, interval, None, end_time_dt, limit=1000)
+                if len(api_candles) > 0:
+                    print("[ Fetched Start to End ]")
+                    print(f"{api_candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')} -> {api_candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+                    
+                    # DB에 캔들 데이터 저장
+                    insert_candles_to_db(api_candles)
+                    final_candles = api_candles
+                else:
+                    print("[ 캔들 요청 실패! ]")
+                    final_candles = []
+
+            # 중복 제거를 위한 딕셔너리 사용 (time을 키로 사용)
+            unique_candles = {}
+            for candle in final_candles:
+                candle_time = int(candle["open_time"].timestamp())
+                # 딕셔너리에 저장하여 중복된 시간의 캔들은 덮어씌움 (또는 건너뛰기 가능)
+                unique_candles[candle_time] = {
+                    "time": candle_time,
+                    "open": float(candle["open"]),
+                    "high": float(candle["high"]),
+                    "low": float(candle["low"]),
+                    "close": float(candle["close"]),
+                    "volume": float(candle["volume"]),
+                }
+
+            normalized_candles = list(unique_candles.values())
+
+            # open_time(time) 기준 오름차순 정렬
+            normalized_candles.sort(key=lambda x: x["time"])
+
+            print(f"Normalized Candles Size : {len(normalized_candles)}")
+            return normalized_candles
+            
+        except requests.exceptions.RequestException as e:
+            Error("requests.exceptions.RequestException")
+            print(e)
+            return []
+        except Exception as e:
+            Error("Exception")
+            traceback.print_exc()
+            return []
+    
+    def fetch_candles_from_api(self, symbol: str, interval: str, start_time_dt: datetime, end_time_dt: datetime, limit: int = 1000) -> List[Dict[str, Any]]:
+        """
+        Binance API에서 캔들 데이터 조회
+        캔들 데이터는 시간의 오름차순으로 정렬되어 있음
+        (과거 데이터가 먼저)
+        """
+        try:
+            Info("[ Requested Candles ]")
+            print(f"interval : {interval}")
+            if start_time_dt != None:
+                print(f"start_time_dt : {start_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"end_time_dt : {end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"limit : {limit}")
+
+            limit = min(limit, 1000)
+            limit = max(limit, 1)
+
+            # 임의의 KST 시각을 KST 정각 시각으로 변환
+            api_start_time_dt = None
+            api_end_time_dt = None
+            if interval == "1d":
+                if start_time_dt != None:
+                    api_start_time_dt = start_time_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+                api_end_time_dt = end_time_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif interval == "1h":
+                if start_time_dt != None:
+                    api_start_time_dt = start_time_dt.replace(minute=0, second=0, microsecond=0)
+
+                api_end_time_dt = end_time_dt.replace(minute=0, second=0, microsecond=0)
+            else:
+                raise "Invalid interval."
+            
+            if api_start_time_dt != None:
+                print(f"api_start_time_dt : {api_start_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"api_end_time_dt : {api_end_time_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+
+            url = API_URL + "/api/v3/klines"
+            # If timeZone provided, kline intervals are interpreted in that timezone instead of UTC.
+            # Note that startTime and endTime are always interpreted in UTC, regardless of timeZone.
+            # https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints#klinecandlestick-data
+            params = {
+                "symbol": symbol,
+                "interval": interval,
+                "endTime": int(api_end_time_dt.timestamp() * 1000),
+                "limit": limit,
+                # 캔들을 KST 기준으로 계산
+                "timeZone": "+09:00",
+            }
+
+            if api_start_time_dt != None:
+                params["startTime"] = int(api_start_time_dt.timestamp() * 1000)
+            
+            resp = requests.get(url, params=params, timeout=10)
+            resp.raise_for_status()
+            resp_json = resp.json()
+
+            candles = []
+            for row in resp_json:
+                candles.append({
+                    "broker_name": "Binance",
+                    "symbol": symbol,
+                    "interval": interval,
+                    "open_time": datetime.fromtimestamp(row[0] / 1000.0),
+                    "close_time": datetime.fromtimestamp(row[6] / 1000.0),
+                    "open": float(row[1]),
+                    "high": float(row[2]),
+                    "low": float(row[3]),
+                    "close": float(row[4]),
+                    "volume": float(row[5]),
+                    "quote_volume": float(row[7]),
+                    "trade_count": row[8],
+                    "taker_buy_base_asset_volume": float(row[9]),
+                    "taker_buy_quote_asset_volume": float(row[10]),
+                })
+
+            print(f"len(candles) : {len(candles)}")
+            if len(candles) > 0:
+                print(f"First Candle : {candles[0]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"Last Candle : {candles[-1]["open_time"].strftime('%Y-%m-%d %H:%M:%S')}")
+
+            return candles
+            
+        except Exception as e:
+            Error(f"Exception")
+            traceback.print_exc()
+            return []
     
     def place_order(self, order) -> List[Dict[str, Any]]:
         """
@@ -370,63 +582,6 @@ class BinanceBroker(BrokerInterface):
             'price': 50000.0,
             'timestamp': '2025-01-01T00:00:00Z'
         }
-    
-    def get_candle(self, symbol: str, interval: str, end_time: str = None):
-        try:
-            symbol = symbol.upper()
-            interval = interval.lower()
-
-            # KST datetime 문자열을 UTC 타임스탬프로 변환
-            end_time_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
-            end_time_utc_timestamp = end_time_dt.timestamp() * 1000
-
-            url = API_URL + "/api/v3/klines"
-            params = {
-                "symbol": symbol,
-                "interval": interval,
-                # 파라미터 이름 유의!(endTime, not end_time)
-                "endTime": int(end_time_utc_timestamp),
-                # limit : Default(500), Max(1000)
-                "limit": 1000,
-            }
-
-            print("[ get_candle ]")
-            print(f"interval : {interval}")
-            print(f"end_time : {end_time}")
-            
-            resp = requests.get(url, params=params, timeout=10)
-            resp.raise_for_status()
-            
-            resp_json = resp.json()
-
-            candles = []
-            for row in resp_json:
-                open_time_dt = datetime.fromtimestamp(int(row[0] / 1000.0))
-                open_time_str = open_time_dt.strftime("%Y-%m-%d %H:%M:%S")
-
-                close_time_dt = datetime.fromtimestamp(int(row[6] / 1000.0))
-                close_time_str = close_time_dt.strftime("%Y-%m-%d %H:%M:%S")
-
-                candles.append({
-                    "time": int(row[0] / 1000),  # lightweight-charts는 초 단위 timestamp 필요
-                    "open": float(row[1]),
-                    "high": float(row[2]),
-                    "low": float(row[3]),
-                    "close": float(row[4]),
-                    "volume": float(row[5]),  # 거래금액 (Quote Asset Volume)
-                })
-
-            return candles
-            
-        except requests.exceptions.RequestException as e:
-            print("[ get_candle ]")
-            print("requests.exceptions.RequestException")
-            return []
-        except Exception as e:
-            print("[ get_candle ]")
-            import traceback
-            traceback.print_exc()
-            return []
     
     async def subscribe_orderbook_async(self, user_id: str, symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         try:
