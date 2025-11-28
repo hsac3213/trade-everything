@@ -1,6 +1,7 @@
 from ..BrokerCommon.BrokerInterface import BrokerInterface
 from ..BrokerCommon.BrokerData import *
-from .constants import API_URL, WS_URL, COLUMN_TO_KOR_DICT, DAY_MARKET_DT
+from .constants import API_URL, WS_URL, COLUMN_TO_KOR_DICT, DAY_MARKET_TIME
+from .constants import check_market_time
 from .ws_token_manager import get_ws_token
 from .token_manager import get_access_token, get_key
 from ..Common.Debug import *
@@ -636,8 +637,7 @@ class KISBroker(BrokerInterface):
         try:
             # 주간거래 시간 처리
             market_code = "DNAS"
-            now = datetime.now()
-            if DAY_MARKET_DT[0].hour <= now.hour <= DAY_MARKET_DT[1].hour:
+            if check_market_time(DAY_MARKET_TIME):
                 market_code = "RBAQ"
 
             ticker_symbol = market_code + ticker_symbol.upper()
@@ -688,14 +688,14 @@ class KISBroker(BrokerInterface):
 
     async def subscribe_trade_price_async(self, user_id: str, ticker_symbol: str, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
         """KIS 실시간 체결가 구독(Frontend <-> Backend)"""
-        # 주간거래 시간 처리
-        market_code = "DNAS"
-        now = datetime.now()
-        if DAY_MARKET_DT[0].hour <= now.hour <= DAY_MARKET_DT[1].hour:
-            market_code = "RBAQ"
-
-        ticker_symbol = market_code + ticker_symbol.upper()
         try:
+            # 주간거래 시간 처리
+            market_code = "DNAS"
+            if check_market_time(DAY_MARKET_TIME):
+                market_code = "RBAQ"
+
+            ticker_symbol = market_code + ticker_symbol.upper()
+
             # 웹소켓 연결
             await KISBroker._ws_connect(user_id)
 

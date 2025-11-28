@@ -107,7 +107,7 @@ COLUMN_TO_KOR_DICT = {
 # 거래 시간 전처리
 from datetime import datetime, timedelta, time, date
 def preprocess_market_time(market_time):
-    return datetime.strptime(market_time[0], "%H:%M").time(), datetime.strptime(market_time[1], "%H:%M").time()
+    #return datetime.strptime(market_time[0], "%H:%M").time(), datetime.strptime(market_time[1], "%H:%M").time()
     start_str, end_str = market_time
     today = date.today()
     
@@ -123,8 +123,18 @@ def preprocess_market_time(market_time):
         
     return start_dt, end_dt
 
-DAY_MARKET_DT = preprocess_market_time(DAY_MARKET_TIME)
-PRE_MARKET_DT = preprocess_market_time(PRE_MARKET_TIME)
-MAIN_MARKET_DT = preprocess_market_time(MAIN_MARKET_TIME)
-AFTER_MARKET_DT = preprocess_market_time(AFTER_MARKET_TIME)
-EXTENDED_AFTER_MARKET_DT = preprocess_market_time(EXTENDED_AFTER_MARKET_TIME)
+def check_market_time(market_time):
+    market_time_dt = preprocess_market_time(market_time)
+
+    print(market_time_dt[0])
+    print(market_time_dt[1])
+
+    if market_time_dt[0] <= datetime.now() < market_time_dt[1]:
+        return True
+    return False
+
+#DAY_MARKET_DT = preprocess_market_time(DAY_MARKET_TIME)
+#PRE_MARKET_DT = preprocess_market_time(PRE_MARKET_TIME)
+#MAIN_MARKET_DT = preprocess_market_time(MAIN_MARKET_TIME)
+#AFTER_MARKET_DT = preprocess_market_time(AFTER_MARKET_TIME)
+#EXTENDED_AFTER_MARKET_DT = preprocess_market_time(EXTENDED_AFTER_MARKET_TIME)
