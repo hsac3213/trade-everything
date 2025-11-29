@@ -153,45 +153,44 @@ async def passkey_register_begin(req: PasskeyRegisterBeginRequest):
     username = req.username
     
     try:
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        
-        # 사용자 존재 여부 확인
-        cursor.execute(
-            "SELECT user_id FROM users WHERE username = %s",
-            (username,)
-        )
-        existing_user = cursor.fetchone()
-        
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already exists"
+        with get_db_conn() as conn:
+            cursor = conn.cursor()
+            
+            # 사용자 존재 여부 확인
+            cursor.execute(
+                "SELECT user_id FROM users WHERE username = %s",
+                (username,)
             )
-        
-        # WebAuthn options 생성
-        options = generate_registration_options(
-            rp_id=RP_ID,
-            rp_name=RP_NAME,
-            user_id=username.encode("utf-8"),
-            user_name=username,
-            user_display_name=username,
-            authenticator_selection=AuthenticatorSelectionCriteria(
-                user_verification=UserVerificationRequirement.PREFERRED,
-            ),
-            supported_pub_key_algs=[
-                COSEAlgorithmIdentifier.ECDSA_SHA_256,
-                COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_256,
-            ],
-        )
-        
-        # Challenge 저장 (Redis 사용)
-        challenge_manager.save_challenge(username, options.challenge)
-        
-        print(f"📝 Registration started for: {username}")
-        
-        return json.loads(options_to_json(options))
-        
+            existing_user = cursor.fetchone()
+            
+            if existing_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username already exists"
+                )
+            
+            # WebAuthn options 생성
+            options = generate_registration_options(
+                rp_id=RP_ID,
+                rp_name=RP_NAME,
+                user_id=username.encode("utf-8"),
+                user_name=username,
+                user_display_name=username,
+                authenticator_selection=AuthenticatorSelectionCriteria(
+                    user_verification=UserVerificationRequirement.PREFERRED,
+                ),
+                supported_pub_key_algs=[
+                    COSEAlgorithmIdentifier.ECDSA_SHA_256,
+                    COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_256,
+                ],
+            )
+            
+            # Challenge 저장 (Redis 사용)
+            challenge_manager.save_challenge(username, options.challenge)
+            
+            print(f"📝 Registration started for: {username}")
+            
+            return json.loads(options_to_json(options))    
     except HTTPException:
         raise
     except Exception as e:
@@ -235,47 +234,47 @@ async def passkey_register_complete(req: PasskeyRegisterCompleteRequest):
         )
         
         # DB에 사용자 및 Credential 저장
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        
-        # 사용자 생성
-        cursor.execute(
-            """
-            INSERT INTO users (username, created_at, last_login)
-            VALUES (%s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            RETURNING user_id
-            """,
-            (username,)
-        )
-        user_id = cursor.fetchone()['user_id']
-        
-        # Credential 저장
-        cursor.execute(
-            """
-            INSERT INTO passkey_credentials (
-                user_id,
-                credential_id,
-                public_key,
-                sign_count,
-                created_at
-            ) VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
-            """,
-            (
-                user_id,
-                base64.b64encode(verification.credential_id).decode('utf-8'),
-                base64.b64encode(verification.credential_public_key).decode('utf-8'),
-                verification.sign_count,
+        with get_db_conn() as conn:
+            cursor = conn.cursor()
+            
+            # 사용자 생성
+            cursor.execute(
+                """
+                INSERT INTO users (username, created_at, last_login)
+                VALUES (%s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                RETURNING user_id
+                """,
+                (username,)
             )
-        )
-        
-        conn.commit()
-        
-        # Challenge 삭제 (Redis에서)
-        challenge_manager.delete_challenge(username)
-        
-        print(f"✅ Registration successful for: {username} (user_id={user_id})")
-        
-        return {"verified": True, "message": "Registration successful"}
+            user_id = cursor.fetchone()['user_id']
+            
+            # Credential 저장
+            cursor.execute(
+                """
+                INSERT INTO passkey_credentials (
+                    user_id,
+                    credential_id,
+                    public_key,
+                    sign_count,
+                    created_at
+                ) VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                """,
+                (
+                    user_id,
+                    base64.b64encode(verification.credential_id).decode('utf-8'),
+                    base64.b64encode(verification.credential_public_key).decode('utf-8'),
+                    verification.sign_count,
+                )
+            )
+            
+            conn.commit()
+            
+            # Challenge 삭제 (Redis에서)
+            challenge_manager.delete_challenge(username)
+            
+            print(f"✅ Registration successful for: {username} (user_id={user_id})")
+            
+            return {"verified": True, "message": "Registration successful"}
         
     except HTTPException:
         raise
@@ -304,63 +303,63 @@ async def passkey_login_begin(req: PasskeyLoginBeginRequest):
     username = req.username
     
     try:
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        
-        # 사용자 조회
-        cursor.execute(
-            "SELECT user_id FROM users WHERE username = %s",
-            (username,)
-        )
-        user = cursor.fetchone()
-        
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+        with get_db_conn() as conn:
+            cursor = conn.cursor()
+            
+            # 사용자 조회
+            cursor.execute(
+                "SELECT user_id FROM users WHERE username = %s",
+                (username,)
             )
-        
-        user_id = user['user_id']
-        
-        # 저장된 Credential 조회
-        cursor.execute(
-            """
-            SELECT credential_id, public_key
-            FROM passkey_credentials
-            WHERE user_id = %s
-            """,
-            (user_id,)
-        )
-        credentials = cursor.fetchall()
-        
-        if not credentials:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No passkey found for this user"
+            user = cursor.fetchone()
+            
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found"
+                )
+            
+            user_id = user['user_id']
+            
+            # 저장된 Credential 조회
+            cursor.execute(
+                """
+                SELECT credential_id, public_key
+                FROM passkey_credentials
+                WHERE user_id = %s
+                """,
+                (user_id,)
             )
-        
-        # Credential descriptors 생성
-        allow_credentials = [
-            PublicKeyCredentialDescriptor(
-                id=base64.b64decode(cred['credential_id']),
-                transports=[AuthenticatorTransport.INTERNAL, AuthenticatorTransport.HYBRID],
+            credentials = cursor.fetchall()
+            
+            if not credentials:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="No passkey found for this user"
+                )
+            
+            # Credential descriptors 생성
+            allow_credentials = [
+                PublicKeyCredentialDescriptor(
+                    id=base64.b64decode(cred['credential_id']),
+                    transports=[AuthenticatorTransport.INTERNAL, AuthenticatorTransport.HYBRID],
+                )
+                for cred in credentials
+            ]
+            
+            # WebAuthn options 생성
+            options = generate_authentication_options(
+                rp_id=RP_ID,
+                allow_credentials=allow_credentials,
+                user_verification=UserVerificationRequirement.PREFERRED,
             )
-            for cred in credentials
-        ]
-        
-        # WebAuthn options 생성
-        options = generate_authentication_options(
-            rp_id=RP_ID,
-            allow_credentials=allow_credentials,
-            user_verification=UserVerificationRequirement.PREFERRED,
-        )
-        
-        # Challenge 저장 (Redis 사용)
-        challenge_manager.save_challenge(username, options.challenge)
-        
-        print(f"🔐 Login started for: {username}")
-        
-        return json.loads(options_to_json(options))
+            
+            # Challenge 저장 (Redis 사용)
+            challenge_manager.save_challenge(username, options.challenge)
+            
+            print(f"🔐 Login started for: {username}")
+            
+            return json.loads(options_to_json(options))
         
     except HTTPException:
         raise
@@ -416,136 +415,136 @@ async def passkey_login_complete(request: Request):
         
         print(f"✅ Challenge retrieved (length: {len(expected_challenge)})")
         
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        
-        # 사용자 조회
-        cursor.execute(
-            "SELECT user_id FROM users WHERE username = %s",
-            (username,)
-        )
-        user = cursor.fetchone()
-        
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        
-        user_id = user['user_id']
-        print(f"✅ User found: {user_id}")
-        
-        # Credential 조회
-        # 'id' 필드만 사용 (Base64URL 문자열)
-        credential_id_raw = assertion_response.get('id')
-        
-        if not credential_id_raw:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Credential ID not found in response"
-            )
-        
-        if not isinstance(credential_id_raw, str):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid credential ID type: {type(credential_id_raw)}"
-            )
-        
-        # Base64URL 문자열을 bytes로 디코딩 후 표준 Base64로 인코딩
-        try:
-            # Base64URL 디코딩 (패딩 추가)
-            credential_id_padded = credential_id_raw + '=' * (4 - len(credential_id_raw) % 4)
-            credential_id_bytes = base64.urlsafe_b64decode(credential_id_padded)
+        with get_db_conn() as conn:
+            cursor = conn.cursor()
             
-            # 표준 Base64로 인코딩 (DB 저장 형식과 일치)
-            credential_id = base64.b64encode(credential_id_bytes).decode('utf-8')
-            print(f"✅ Credential ID converted (length: {len(credential_id_bytes)})")
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid credential ID format: {str(e)}"
+            # 사용자 조회
+            cursor.execute(
+                "SELECT user_id FROM users WHERE username = %s",
+                (username,)
             )
+            user = cursor.fetchone()
+            
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found"
+                )
+            
+            user_id = user['user_id']
+            print(f"✅ User found: {user_id}")
+            
+            # Credential 조회
+            # 'id' 필드만 사용 (Base64URL 문자열)
+            credential_id_raw = assertion_response.get('id')
+            
+            if not credential_id_raw:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Credential ID not found in response"
+                )
+            
+            if not isinstance(credential_id_raw, str):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid credential ID type: {type(credential_id_raw)}"
+                )
+            
+            # Base64URL 문자열을 bytes로 디코딩 후 표준 Base64로 인코딩
+            try:
+                # Base64URL 디코딩 (패딩 추가)
+                credential_id_padded = credential_id_raw + '=' * (4 - len(credential_id_raw) % 4)
+                credential_id_bytes = base64.urlsafe_b64decode(credential_id_padded)
+                
+                # 표준 Base64로 인코딩 (DB 저장 형식과 일치)
+                credential_id = base64.b64encode(credential_id_bytes).decode('utf-8')
+                print(f"✅ Credential ID converted (length: {len(credential_id_bytes)})")
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid credential ID format: {str(e)}"
+                )
 
-        cursor.execute(
-            """
-            SELECT credential_id, public_key, sign_count
-            FROM passkey_credentials
-            WHERE user_id = %s AND credential_id = %s
-            """,
-            (user_id, credential_id)
-        )
-        credential = cursor.fetchone()
-        
-        if not credential:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Credential not found"
+            cursor.execute(
+                """
+                SELECT credential_id, public_key, sign_count
+                FROM passkey_credentials
+                WHERE user_id = %s AND credential_id = %s
+                """,
+                (user_id, credential_id)
             )
-        
-        print(f"✅ Credential found in DB")
-        
-        # WebAuthn response 검증
-        print(f"🔐 Verifying authentication response...")
-        try:
-            verification = verify_authentication_response(
-                credential=assertion_response,
-                expected_challenge=expected_challenge,
-                expected_origin=RP_ORIGIN,
-                expected_rp_id=RP_ID,
-                credential_public_key=base64.b64decode(credential['public_key']),
-                credential_current_sign_count=credential['sign_count'],
+            credential = cursor.fetchone()
+            
+            if not credential:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Credential not found"
+                )
+            
+            print(f"✅ Credential found in DB")
+            
+            # WebAuthn response 검증
+            print(f"🔐 Verifying authentication response...")
+            try:
+                verification = verify_authentication_response(
+                    credential=assertion_response,
+                    expected_challenge=expected_challenge,
+                    expected_origin=RP_ORIGIN,
+                    expected_rp_id=RP_ID,
+                    credential_public_key=base64.b64decode(credential['public_key']),
+                    credential_current_sign_count=credential['sign_count'],
+                )
+                print(f"✅ Authentication verified successfully")
+            except Exception as verify_error:
+                print(f"❌ Verification failed: {verify_error}")
+                raise
+            
+            # Sign count 및 last_used 업데이트
+            cursor.execute(
+                """
+                UPDATE passkey_credentials
+                SET sign_count = %s, last_used = CURRENT_TIMESTAMP
+                WHERE user_id = %s AND credential_id = %s
+                """,
+                (verification.new_sign_count, user_id, credential_id)
             )
-            print(f"✅ Authentication verified successfully")
-        except Exception as verify_error:
-            print(f"❌ Verification failed: {verify_error}")
-            raise
-        
-        # Sign count 및 last_used 업데이트
-        cursor.execute(
-            """
-            UPDATE passkey_credentials
-            SET sign_count = %s, last_used = CURRENT_TIMESTAMP
-            WHERE user_id = %s AND credential_id = %s
-            """,
-            (verification.new_sign_count, user_id, credential_id)
-        )
-        
-        # 마지막 로그인 시간 업데이트
-        cursor.execute(
-            "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = %s",
-            (user_id,)
-        )
-        
-        conn.commit()
-        
-        # Challenge 삭제 (Redis에서)
-        challenge_manager.delete_challenge(username)
-        
-        # JWT 토큰 생성
-        token_data = {"user_id": user_id, "username": username}
-        access_token = session_manager.create_access_token(token_data)
-        refresh_token = session_manager.create_refresh_token(token_data)
-        
-        # 세션 저장
-        client_ip = request.client.host if request.client else "unknown"
-        user_agent = request.headers.get("user-agent", "")
-        
-        session_manager.save_session(
-            user_id=user_id,
-            token=access_token,
-            ip=client_ip,
-            user_agent=user_agent,
-            metadata={"username": username, "login_method": "passkey"}
-        )
-        
-        print(f"✅ Login successful for: {username} (user_id={user_id})")
-        
-        return TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer",
-            expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
-        )
+            
+            # 마지막 로그인 시간 업데이트
+            cursor.execute(
+                "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = %s",
+                (user_id,)
+            )
+            
+            conn.commit()
+            
+            # Challenge 삭제 (Redis에서)
+            challenge_manager.delete_challenge(username)
+            
+            # JWT 토큰 생성
+            token_data = {"user_id": user_id, "username": username}
+            access_token = session_manager.create_access_token(token_data)
+            refresh_token = session_manager.create_refresh_token(token_data)
+            
+            # 세션 저장
+            client_ip = request.client.host if request.client else "unknown"
+            user_agent = request.headers.get("user-agent", "")
+            
+            session_manager.save_session(
+                user_id=user_id,
+                token=access_token,
+                ip=client_ip,
+                user_agent=user_agent,
+                metadata={"username": username, "login_method": "passkey"}
+            )
+            
+            print(f"✅ Login successful for: {username} (user_id={user_id})")
+            
+            return TokenResponse(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                token_type="bearer",
+                expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            )
         
     except HTTPException:
         raise
@@ -579,64 +578,64 @@ async def passkey_add_begin(req: PasskeyRegisterBeginRequest, current_user: dict
     user_id = current_user.get("user_id")
     
     try:
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        
-        # 사용자 확인
-        cursor.execute(
-            "SELECT user_id, username FROM users WHERE user_id = %s",
-            (user_id,)
-        )
-        user = cursor.fetchone()
-        
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+        with get_db_conn() as conn:
+            cursor = conn.cursor()
+            
+            # 사용자 확인
+            cursor.execute(
+                "SELECT user_id, username FROM users WHERE user_id = %s",
+                (user_id,)
             )
-        
-        # Username 일치 확인 (본인만 추가 가능)
-        if user['username'] != username:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only add passkeys to your own account"
+            user = cursor.fetchone()
+            
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found"
+                )
+            
+            # Username 일치 확인 (본인만 추가 가능)
+            if user['username'] != username:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only add passkeys to your own account"
+                )
+            
+            # 기존 Credential 개수 확인 (선택적 제한)
+            cursor.execute(
+                "SELECT COUNT(*) as count FROM passkey_credentials WHERE user_id = %s",
+                (user_id,)
             )
-        
-        # 기존 Credential 개수 확인 (선택적 제한)
-        cursor.execute(
-            "SELECT COUNT(*) as count FROM passkey_credentials WHERE user_id = %s",
-            (user_id,)
-        )
-        credential_count = cursor.fetchone()['count']
-        
-        if credential_count >= 10:  # 최대 10개 제한
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Maximum number of passkeys reached (10)"
+            credential_count = cursor.fetchone()['count']
+            
+            if credential_count >= 10:  # 최대 10개 제한
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Maximum number of passkeys reached (10)"
+                )
+            
+            # WebAuthn options 생성
+            options = generate_registration_options(
+                rp_id=RP_ID,
+                rp_name=RP_NAME,
+                user_id=str(user_id).encode("utf-8"),
+                user_name=username,
+                user_display_name=username,
+                authenticator_selection=AuthenticatorSelectionCriteria(
+                    user_verification=UserVerificationRequirement.PREFERRED,
+                ),
+                supported_pub_key_algs=[
+                    COSEAlgorithmIdentifier.ECDSA_SHA_256,
+                    COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_256,
+                ],
             )
-        
-        # WebAuthn options 생성
-        options = generate_registration_options(
-            rp_id=RP_ID,
-            rp_name=RP_NAME,
-            user_id=str(user_id).encode("utf-8"),
-            user_name=username,
-            user_display_name=username,
-            authenticator_selection=AuthenticatorSelectionCriteria(
-                user_verification=UserVerificationRequirement.PREFERRED,
-            ),
-            supported_pub_key_algs=[
-                COSEAlgorithmIdentifier.ECDSA_SHA_256,
-                COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_256,
-            ],
-        )
-        
-        # Challenge 저장 (user_id를 키로 사용, Redis 사용)
-        challenge_manager.save_challenge(f"add_{user_id}", options.challenge)
-        
-        print(f"📝 Additional passkey registration started for: {username} (user_id={user_id})")
-        
-        return json.loads(options_to_json(options))
+            
+            # Challenge 저장 (user_id를 키로 사용, Redis 사용)
+            challenge_manager.save_challenge(f"add_{user_id}", options.challenge)
+            
+            print(f"📝 Additional passkey registration started for: {username} (user_id={user_id})")
+            
+            return json.loads(options_to_json(options))
         
     except HTTPException:
         raise
@@ -682,63 +681,63 @@ async def passkey_add_complete(req: PasskeyRegisterCompleteRequest, current_user
         )
         
         # DB에 Credential 저장
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        
-        # 사용자 확인
-        cursor.execute(
-            "SELECT username FROM users WHERE user_id = %s",
-            (user_id,)
-        )
-        user = cursor.fetchone()
-        
-        if not user or user['username'] != username:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Unauthorized"
+        with get_db_conn() as conn:
+            cursor = conn.cursor()
+            
+            # 사용자 확인
+            cursor.execute(
+                "SELECT username FROM users WHERE user_id = %s",
+                (user_id,)
             )
-        
-        # Credential 중복 확인
-        credential_id_b64 = base64.b64encode(verification.credential_id).decode('utf-8')
-        cursor.execute(
-            "SELECT credential_id FROM passkey_credentials WHERE credential_id = %s",
-            (credential_id_b64,)
-        )
-        existing_cred = cursor.fetchone()
-        
-        if existing_cred:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This passkey is already registered"
+            user = cursor.fetchone()
+            
+            if not user or user['username'] != username:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Unauthorized"
+                )
+            
+            # Credential 중복 확인
+            credential_id_b64 = base64.b64encode(verification.credential_id).decode('utf-8')
+            cursor.execute(
+                "SELECT credential_id FROM passkey_credentials WHERE credential_id = %s",
+                (credential_id_b64,)
             )
-        
-        # 새 Credential 저장
-        cursor.execute(
-            """
-            INSERT INTO passkey_credentials (
-                user_id,
-                credential_id,
-                public_key,
-                sign_count,
-                created_at
-            ) VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
-            """,
-            (
-                user_id,
-                credential_id_b64,
-                base64.b64encode(verification.credential_public_key).decode('utf-8'),
-                verification.sign_count,
+            existing_cred = cursor.fetchone()
+            
+            if existing_cred:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This passkey is already registered"
+                )
+            
+            # 새 Credential 저장
+            cursor.execute(
+                """
+                INSERT INTO passkey_credentials (
+                    user_id,
+                    credential_id,
+                    public_key,
+                    sign_count,
+                    created_at
+                ) VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                """,
+                (
+                    user_id,
+                    credential_id_b64,
+                    base64.b64encode(verification.credential_public_key).decode('utf-8'),
+                    verification.sign_count,
+                )
             )
-        )
-        
-        conn.commit()
-        
-        # Challenge 삭제 (Redis에서)
-        challenge_manager.delete_challenge(challenge_key)
-        
-        print(f"✅ Additional passkey added for: {username} (user_id={user_id})")
-        
-        return {"verified": True, "message": "Passkey added successfully"}
+            
+            conn.commit()
+            
+            # Challenge 삭제 (Redis에서)
+            challenge_manager.delete_challenge(challenge_key)
+            
+            print(f"✅ Additional passkey added for: {username} (user_id={user_id})")
+            
+            return {"verified": True, "message": "Passkey added successfully"}
         
     except HTTPException:
         raise
@@ -766,36 +765,36 @@ async def passkey_list(current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id")
     
     try:
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            """
-            SELECT 
-                credential_id,
-                created_at,
-                last_used,
-                sign_count
-            FROM passkey_credentials
-            WHERE user_id = %s
-            ORDER BY created_at DESC
-            """,
-            (user_id,)
-        )
-        credentials = cursor.fetchall()
-        
-        return {
-            "passkeys": [
-                {
-                    "credential_id": cred['credential_id'][:20] + "...",  # 일부만 표시
-                    "created_at": cred['created_at'].isoformat() if cred['created_at'] else None,
-                    "last_used": cred['last_used'].isoformat() if cred['last_used'] else None,
-                    "sign_count": cred['sign_count']
-                }
-                for cred in credentials
-            ],
-            "total": len(credentials)
-        }
+        with get_db_conn() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute(
+                """
+                SELECT 
+                    credential_id,
+                    created_at,
+                    last_used,
+                    sign_count
+                FROM passkey_credentials
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """,
+                (user_id,)
+            )
+            credentials = cursor.fetchall()
+            
+            return {
+                "passkeys": [
+                    {
+                        "credential_id": cred['credential_id'][:20] + "...",  # 일부만 표시
+                        "created_at": cred['created_at'].isoformat() if cred['created_at'] else None,
+                        "last_used": cred['last_used'].isoformat() if cred['last_used'] else None,
+                        "sign_count": cred['sign_count']
+                    }
+                    for cred in credentials
+                ],
+                "total": len(credentials)
+            }
         
     except Exception as e:
         print(f"❌ List passkeys error: {e}")
@@ -822,44 +821,44 @@ async def passkey_remove(credential_id: str, current_user: dict = Depends(get_cu
     user_id = current_user.get("user_id")
     
     try:
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        
-        # 최소 1개는 남겨야 함
-        cursor.execute(
-            "SELECT COUNT(*) as count FROM passkey_credentials WHERE user_id = %s",
-            (user_id,)
-        )
-        count = cursor.fetchone()['count']
-        
-        if count <= 1:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot remove last passkey. At least one passkey must remain."
+        with get_db_conn() as conn:
+            cursor = conn.cursor()
+            
+            # 최소 1개는 남겨야 함
+            cursor.execute(
+                "SELECT COUNT(*) as count FROM passkey_credentials WHERE user_id = %s",
+                (user_id,)
             )
-        
-        # Credential 삭제 (LIKE를 사용하여 일부 일치도 허용)
-        cursor.execute(
-            """
-            DELETE FROM passkey_credentials
-            WHERE user_id = %s AND credential_id LIKE %s
-            RETURNING credential_id
-            """,
-            (user_id, f"{credential_id}%")
-        )
-        deleted = cursor.fetchone()
-        
-        if not deleted:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Passkey not found"
+            count = cursor.fetchone()['count']
+            
+            if count <= 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot remove last passkey. At least one passkey must remain."
+                )
+            
+            # Credential 삭제 (LIKE를 사용하여 일부 일치도 허용)
+            cursor.execute(
+                """
+                DELETE FROM passkey_credentials
+                WHERE user_id = %s AND credential_id LIKE %s
+                RETURNING credential_id
+                """,
+                (user_id, f"{credential_id}%")
             )
-        
-        conn.commit()
-        
-        print(f"🗑️ Passkey removed for user_id={user_id}")
-        
-        return {"message": "Passkey removed successfully"}
+            deleted = cursor.fetchone()
+            
+            if not deleted:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Passkey not found"
+                )
+            
+            conn.commit()
+            
+            print(f"🗑️ Passkey removed for user_id={user_id}")
+            
+            return {"message": "Passkey removed successfully"}
         
     except HTTPException:
         raise

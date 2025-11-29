@@ -31,36 +31,36 @@ def get_key(user_id):
         #print("Use cached Binance key.")
         return json.loads(redis_manager.redis_client.get(name=key))
 
-    conn = get_db_conn()
-    cursor = conn.cursor()
+    with get_db_conn() as conn:
+        cursor = conn.cursor()
 
-    api_key = ""
-    private_key = ""
-    
-    cursor.execute(
-        "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'Binance' and token_name = %s",
-        (user_id, "API",)
-    )
-    token = cursor.fetchone()
-    if token != None:
-        api_key = token["token"]
+        api_key = ""
+        private_key = ""
+        
+        cursor.execute(
+            "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'Binance' and token_name = %s",
+            (user_id, "API",)
+        )
+        token = cursor.fetchone()
+        if token != None:
+            api_key = token["token"]
 
-    cursor.execute(
-        "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'Binance' and token_name = %s",
-        (user_id, "Private",)
-    )
-    token = cursor.fetchone()
-    if token != None:
-        private_key = token["token"]
+        cursor.execute(
+            "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'Binance' and token_name = %s",
+            (user_id, "Private",)
+        )
+        token = cursor.fetchone()
+        if token != None:
+            private_key = token["token"]
 
-    key_json = {
-        "API": api_key,
-        "Private": private_key,
-    }
-    redis_manager.redis_client.set(name=key, value=json.dumps(key_json), ex=60 * 60 * 23)
+        key_json = {
+            "API": api_key,
+            "Private": private_key,
+        }
+        redis_manager.redis_client.set(name=key, value=json.dumps(key_json), ex=60 * 60 * 23)
 
-    Info("")
-    return key_json
+        Info("")
+        return key_json
 
 # https://github.com/binance/binance-signature-examples/tree/master/python
 def signing(input):

@@ -14,47 +14,47 @@ def get_ws_token(user_id):
         #print(redis_manager.redis_client.get(name=key))
         return redis_manager.redis_client.get(name=key)
 
-    conn = get_db_conn()
-    cursor = conn.cursor()
+    with get_db_conn() as conn:
+        cursor = conn.cursor()
 
-    app_key = ""
-    sec_key = ""
-    
-    cursor.execute(
-        "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'KIS' and token_name = %s",
-        (user_id, "APP",)
-    )
-    token = cursor.fetchone()
-    if token != None:
-        app_key = token["token"]
+        app_key = ""
+        sec_key = ""
+        
+        cursor.execute(
+            "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'KIS' and token_name = %s",
+            (user_id, "APP",)
+        )
+        token = cursor.fetchone()
+        if token != None:
+            app_key = token["token"]
 
-    cursor.execute(
-        "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'KIS' and token_name = %s",
-        (user_id, "SEC",)
-    )
-    token = cursor.fetchone()
-    if token != None:
-        sec_key = token["token"]
+        cursor.execute(
+            "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'KIS' and token_name = %s",
+            (user_id, "SEC",)
+        )
+        token = cursor.fetchone()
+        if token != None:
+            sec_key = token["token"]
 
-    conn.close()
+        conn.close()
 
-    # KIS API 서버에 새로운 웹소켓 토큰을 요청
-    print('Current ws token in cache is expired. Request new ws token.')
-    json_req = {
-        'grant_type': 'client_credentials',
-        'appkey': app_key,
-        'secretkey': sec_key,
-    }
-    headers = { 'content-type': 'application/json' }
-    resp = requests.post(API_URL + '/oauth2/Approval', headers=headers, data=json.dumps(json_req))
+        # KIS API 서버에 새로운 웹소켓 토큰을 요청
+        print('Current ws token in cache is expired. Request new ws token.')
+        json_req = {
+            'grant_type': 'client_credentials',
+            'appkey': app_key,
+            'secretkey': sec_key,
+        }
+        headers = { 'content-type': 'application/json' }
+        resp = requests.post(API_URL + '/oauth2/Approval', headers=headers, data=json.dumps(json_req))
 
-    if 'approval_key' in resp.json():
-        approval_key = resp.json()['approval_key']
-        redis_manager.redis_client.set(name=key, value=approval_key, ex=60 * 60 * 23)
+        if 'approval_key' in resp.json():
+            approval_key = resp.json()['approval_key']
+            redis_manager.redis_client.set(name=key, value=approval_key, ex=60 * 60 * 23)
 
-        return approval_key
-    else:
-        print('Invalid Response:')
-        print(resp.text)
-    
-    return None
+            return approval_key
+        else:
+            print('Invalid Response:')
+            print(resp.text)
+        
+        return None
