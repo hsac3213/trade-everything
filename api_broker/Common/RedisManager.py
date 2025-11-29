@@ -27,3 +27,5 @@ class RedisManager:
         except redis.ConnectionError:
             print("Redis connection error.")
             raise
+
+redis_manager = RedisManager()

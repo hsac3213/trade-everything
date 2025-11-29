@@ -1,11 +1,9 @@
-from ..Server.redis_manager import RedisManager
+from ..Common.RedisManager import redis_manager
 from .constants import *
 from ..Common.DBManager import get_db_conn
 
 import json
 import requests
-
-redis_manager = RedisManager()
 
 def get_key(user_id):
     key = f"{user_id}_KIS_KEY"

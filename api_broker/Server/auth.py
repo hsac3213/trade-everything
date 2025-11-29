@@ -1,6 +1,6 @@
 from .session_manager import SecureSessionManager, ACCESS_TOKEN_EXPIRE_MINUTES
 from .auth_dependency import get_current_user
-from .redis_manager import RedisManager
+from ..Common.RedisManager import redis_manager
 from ..Common.DBManager import get_db_conn
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
@@ -35,7 +35,6 @@ RP_NAME = "Trade Everything"
 RP_ORIGIN = "http://localhost:5173"
 
 # 세션 관리자 인스턴스
-redis_manager = RedisManager()
 session_manager = SecureSessionManager(redis_manager.redis_client)
 
 # Challenge 관리 클래스

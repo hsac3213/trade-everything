@@ -18,42 +18,41 @@ def get_candles_from_db(
     """
 
     try:
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        
-        query = """
-            SELECT 
-                broker_name, symbol, interval,
-                open_time, close_time,
-                open, high, low, close, volume,
-                quote_volume, trade_count,
-                taker_buy_base_asset_volume, taker_buy_quote_asset_volume,
-                inserted_at
-            FROM candle_data
-            WHERE broker_name = %s
-                AND symbol = %s
-                AND interval = %s
-        """
-        
-        params = [broker_name, symbol, interval]
-        
-        if start_time:
-            query += " AND open_time >= %s"
-            params.append(start_time)
-        
-        if end_time:
-            query += " AND open_time <= %s"
-            params.append(end_time)
-        
-        # 가져오는 것은 최신 데이터부터 가져오기
-        query += " ORDER BY open_time DESC LIMIT %s"
-        params.append(limit)
-        
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        
-        cursor.close()
-        conn.close()
+        with get_db_conn() as conn:
+            cursor = conn.cursor()
+            
+            query = """
+                SELECT 
+                    broker_name, symbol, interval,
+                    open_time, close_time,
+                    open, high, low, close, volume,
+                    quote_volume, trade_count,
+                    taker_buy_base_asset_volume, taker_buy_quote_asset_volume,
+                    inserted_at
+                FROM candle_data
+                WHERE broker_name = %s
+                    AND symbol = %s
+                    AND interval = %s
+            """
+            
+            params = [broker_name, symbol, interval]
+            
+            if start_time:
+                query += " AND open_time >= %s"
+                params.append(start_time)
+            
+            if end_time:
+                query += " AND open_time <= %s"
+                params.append(end_time)
+            
+            # 가져오는 것은 최신 데이터부터 가져오기
+            query += " ORDER BY open_time DESC LIMIT %s"
+            params.append(limit)
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+            cursor.close()
         
         candles = []
         for row in rows:
@@ -90,61 +89,60 @@ def insert_candles_to_db(candles: List[Dict[str, Any]]):
         현재 생성중인 캔들은 저장하지 않음
         """
         try:
-            conn = get_db_conn()
-            cursor = conn.cursor()
-            
-            insert_query = """
-                INSERT INTO candle_data (
-                    broker_name, symbol, interval, 
-                    open_time, close_time,
-                    open, high, low, close,
-                    volume, quote_volume, trade_count,
-                    taker_buy_base_asset_volume, taker_buy_quote_asset_volume
-                ) VALUES (
-                    %s, %s, %s,
-                    %s, %s,
-                    %s, %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s
-                )
-                ON CONFLICT (broker_name, symbol, interval, open_time) 
-                DO NOTHING;
-            """
-            
-            for candle in candles:
-                # 현재 생성중인 캔들은 무시
-                if candle["interval"] == "1d":
-                    candle_close_time = candle["open_time"] + timedelta(days=1)
-                elif candle["interval"] == "1h":
-                    candle_close_time = candle["open_time"] + timedelta(hours=1)
-
-                if datetime.now() < candle_close_time:
-                    #print(f"생성중인 캔들 무시 : {datetime.strftime(candle["close_time"], "%Y-%m-%d %H:%M:%S")}")
-                    #print(f"{datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")} < {datetime.strftime(candle_close_time, "%Y-%m-%d %H:%M:%S")}")
-                    continue
+            with get_db_conn() as conn:
+                cursor = conn.cursor()
                 
-                # 밀리초 타임스탬프를 그대로 전달(PostgreSQL에서 자동 변환)
-                cursor.execute(insert_query, (
-                    candle["broker_name"],
-                    candle["symbol"],
-                    candle["interval"],
-                    candle["open_time"],
-                    candle["close_time"],
+                insert_query = """
+                    INSERT INTO candle_data (
+                        broker_name, symbol, interval, 
+                        open_time, close_time,
+                        open, high, low, close,
+                        volume, quote_volume, trade_count,
+                        taker_buy_base_asset_volume, taker_buy_quote_asset_volume
+                    ) VALUES (
+                        %s, %s, %s,
+                        %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s,
+                        %s, %s
+                    )
+                    ON CONFLICT (broker_name, symbol, interval, open_time) 
+                    DO NOTHING;
+                """
+                
+                for candle in candles:
+                    # 현재 생성중인 캔들은 무시
+                    if candle["interval"] == "1d":
+                        candle_close_time = candle["open_time"] + timedelta(days=1)
+                    elif candle["interval"] == "1h":
+                        candle_close_time = candle["open_time"] + timedelta(hours=1)
 
-                    candle["open"],
-                    candle["high"],
-                    candle["low"],
-                    candle["close"],
-                    candle["volume"],
-                    candle["quote_volume"],
-                    candle["trade_count"],
-                    candle["taker_buy_base_asset_volume"],
-                    candle["taker_buy_quote_asset_volume"],
-                ))
-            
-            conn.commit()
-            cursor.close()
-            conn.close()
+                    if datetime.now() < candle_close_time:
+                        #print(f"생성중인 캔들 무시 : {datetime.strftime(candle["close_time"], "%Y-%m-%d %H:%M:%S")}")
+                        #print(f"{datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")} < {datetime.strftime(candle_close_time, "%Y-%m-%d %H:%M:%S")}")
+                        continue
+                    
+                    # 밀리초 타임스탬프를 그대로 전달(PostgreSQL에서 자동 변환)
+                    cursor.execute(insert_query, (
+                        candle["broker_name"],
+                        candle["symbol"],
+                        candle["interval"],
+                        candle["open_time"],
+                        candle["close_time"],
+
+                        candle["open"],
+                        candle["high"],
+                        candle["low"],
+                        candle["close"],
+                        candle["volume"],
+                        candle["quote_volume"],
+                        candle["trade_count"],
+                        candle["taker_buy_base_asset_volume"],
+                        candle["taker_buy_quote_asset_volume"],
+                    ))
+                
+                conn.commit()
+                cursor.close()
             
         except Exception as e:
             Error(f"Exception")

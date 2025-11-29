@@ -3,7 +3,7 @@ FastAPI 인증 의존성
 JWT + Redis 세션 검증 및 핑거프린트 확인
 """
 from .session_manager import SecureSessionManager
-from .redis_manager import RedisManager
+from ..Common.RedisManager import redis_manager
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional, Dict, Any
@@ -13,7 +13,6 @@ from datetime import datetime
 security = HTTPBearer()
 
 # 전역 세션 관리자 인스턴스
-redis_manager = RedisManager()
 session_manager = SecureSessionManager(redis_manager.redis_client)
 
 async def get_current_user(

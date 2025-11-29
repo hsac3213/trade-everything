@@ -101,7 +101,7 @@ def cancel_order(user_id, order):
         traceback.print_exc()
         return []
     
-def cancel_all_orders(user_id, order):
+def cancel_all_orders(user_id):
     try:
         headers = {
             "X-MBX-APIKEY": get_key(user_id)["API"],

@@ -1,4 +1,4 @@
-from ..Server.redis_manager import RedisManager
+from ..Common.RedisManager import redis_manager
 from ..Common.Debug import *
 from ..Common.DBManager import get_db_conn
 
@@ -22,8 +22,6 @@ CRYPTO_PAIR_WHITELIST = [
     "btcusdc",
     "usdcusdt",
 ]
-
-redis_manager = RedisManager()
 
 def get_key(user_id):
     key = f"{user_id}_Binance_KEY"
