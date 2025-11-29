@@ -3,6 +3,7 @@ from .auth_dependency import get_current_user
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+import traceback
 
 router = APIRouter(prefix="/api/favorites", tags=["favorites"])
 
@@ -21,18 +22,13 @@ class FavoriteSymbol(BaseModel):
 def get_db():
     db = UserSettingsManager()
     try:
-        db.connect()
         yield db
     except Exception as e:
         print(f"❌ DB Connection Error: {e}")
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
     finally:
-        try:
-            db.close()
-        except:
-            pass
+        pass
 
 @router.post("/add")
 async def add_favorite(

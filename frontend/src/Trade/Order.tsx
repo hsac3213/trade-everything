@@ -61,7 +61,7 @@ const Order: React.FC<OrderProps> = ({ broker, symbol, selectedPrice, onOrderSuc
       console.log(data);
 
       if (data['result'] === 'success') {
-        showToast.success(`${side} order placed successfully`);
+        //showToast.success(`${side} order placed successfully`);
         // 주문 성공 후 입력 필드 초기화
         setAmount('');
         if (orderType === 'market') {

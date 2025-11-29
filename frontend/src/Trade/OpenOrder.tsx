@@ -122,6 +122,7 @@ const OpenOrder: React.FC<OpenOrderProps> = ({ broker, onRefreshRequest }) => {
           }
           // 새 주문
           else if (orderData.order_status === 'NEW') {
+            showToast.info(`Order placed: ${orderData.symbol} ${orderData.side} @ ${orderData.price}`);
             // 이미 목록에 없으면 추가
             setOpenOrders(prev => {
               const exists = prev.some(order => order.order_id === orderData.order_id);
@@ -210,8 +211,7 @@ const OpenOrder: React.FC<OpenOrderProps> = ({ broker, onRefreshRequest }) => {
       const data = await response.json();
       
       if (data.message === 'success') {
-        showToast.success(`Order ${orderId} canceled`);
-        await fetchOrders(); // 주문 목록 갱신
+        
       } else {
         showToast.error(`Failed to cancel order: ${data.error || 'Unknown error'}`);
       }

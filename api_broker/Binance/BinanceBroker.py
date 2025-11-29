@@ -295,7 +295,7 @@ class BinanceBroker(BrokerInterface):
         """
         Binance 모든 주문 취소
         """
-        return cancel_all_orders(None)
+        return cancel_all_orders(self.user_id)
 
     def get_orders(self) -> List[NormalizedOrder]:
         """
@@ -428,7 +428,7 @@ class BinanceBroker(BrokerInterface):
                         
                     except json.JSONDecodeError as e:
                         Error(f"JSON decode error: {e}")
-                    except asyncio.CancelledErroras as e:
+                    except asyncio.CancelledError as e:
                         Error("asyncio.CancelledError")
                         print(e)
                         # 취소 신호 - 즉시 종료

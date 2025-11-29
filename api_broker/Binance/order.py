@@ -39,8 +39,6 @@ def place_order(user_id, order):
         if "msg" in resp_json:
             result["message"] = resp_json["msg"]
 
-        pprint(result)
-
         return result
 
     except requests.exceptions.RequestException as e:
@@ -72,9 +70,7 @@ def cancel_order(user_id, order):
         resp = requests.delete(url, headers=headers, data=payload, timeout=10)
         resp_json = resp.json()
 
-        pprint(resp_json)
-
-        print(f"[ {func_name()} ]")
+        #pprint(resp_json)
         
         result = {
             "result": "error",
@@ -107,31 +103,32 @@ def cancel_all_orders(user_id):
             "X-MBX-APIKEY": get_key(user_id)["API"],
         }
 
-        params = {
-            "symbol": str(order["symbol"]).upper(),
-        }
+        params = {}
         payload = get_signed_payload_post(user_id, params)
 
         url = API_URL + f"/api/v3/openOrders"
-        resp = requests.delete(url, headers=headers, data=payload, timeout=10)
+        resp = requests.get(url, headers=headers, params=payload, timeout=10)
         resp_json = resp.json()
 
-        pprint(resp_json)
+        for order in resp_json:
+            normalized_order = {
+                "symbol": order["symbol"],
+                "order_id": order["orderId"],
+            }
+            cancel_order(user_id, normalized_order)
         
         result = {
-            "result": "error",
+            "result": "success",
             "message": "",
         }
 
         return result
 
     except requests.exceptions.RequestException as e:
-        print(f"[ {func_name()} ]")
-        print("requests.exceptions.RequestException:")
+        Error("requests.exceptions.RequestException")
         print(e)
         return []
     except Exception as e:
-        print(f"[ {func_name()} ]")
-        print(e)
+        Error("Exception")
         traceback.print_exc()
         return []
