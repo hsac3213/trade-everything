@@ -5,6 +5,7 @@ from .common import API_URL, WSS_URL, WS_URL, get_key
 from .common import get_signed_payload_ws, get_signed_payload_post
 from .price import get_realtime_orderbook_price, get_realtime_trade_price
 from .order import place_order, cancel_order, cancel_all_orders
+from .account import get_assets
 from ..Common.Debug import *
 
 from typing import List, Dict, Any, Callable, Awaitable
@@ -502,60 +503,10 @@ class BinanceBroker(BrokerInterface):
             print(traceback.format_exc())
 
     def get_assets(self) -> List[Dict[str, Any]]:
-        try:
-            headers = {
-                "X-MBX-APIKEY": get_key(self.user_id)["API"],
-            }
-
-            params = {
-                "recvWindow": "5000",
-                "timestamp": str(int(time.time()) * 1000)
-            }
-            query_string = urlencode(params)
-            signature = signing(query_string)
-
-            url = API_URL + f"/sapi/v3/asset/getUserAsset?{query_string}&signature={signature}"
-            resp = requests.post(url, headers=headers, data=params, timeout=10)
-            resp_json = resp.json()
-
-            assets = []
-            for asset in resp_json:
-                assets.append({
-                    "display_name": "Spot " + asset["asset"],
-                    "symbol": asset["asset"],
-                    "amount": asset["free"],
-                })
-
-            params = {
-                "recvWindow": "5000",
-                "timestamp": str(int(time.time()) * 1000)
-            }
-            query_string = urlencode(params)
-            signature = signing(query_string)
-
-            url = API_URL + f"/sapi/v1/simple-earn/account?{query_string}&signature={signature}"
-            resp = requests.get(url, headers=headers, timeout=10)
-            resp_json = resp.json()
-
-            assets.append({
-                "display_name": "Simple Earn USDT",
-                "symbol": "USDT",
-                "amount": resp_json["totalAmountInUSDT"],
-            })
-
-            return assets
-            
-        except requests.exceptions.RequestException as e:
-            print("[ get_assets ]")
-            print("requests.exceptions.RequestException:")
-            print(e)
-            return []
-        except Exception as e:
-            print("[ get_assets ]")
-            print(e)
-            import traceback
-            traceback.print_exc()
-            return []
+        """
+        Binance 자산 조회
+        """
+        return get_assets(self.user_id)
 
     def get_symbols(self) -> List[Dict[str, Any]]:
         try:
