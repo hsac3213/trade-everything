@@ -21,6 +21,8 @@ def get_key(user_id):
 
         account_number_0 = ""
         account_number_1 = ""
+
+        hts_id = ""
         
         cursor.execute(
             "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'KIS' and token_name = %s",
@@ -55,6 +57,14 @@ def get_key(user_id):
         if token != None:
             account_number_1 = token["token"]
 
+        cursor.execute(
+            "SELECT token FROM user_tokens WHERE user_id = %s and broker_name = 'KIS' and token_name = %s",
+            (user_id, "HTS_ID",)
+        )
+        token = cursor.fetchone()
+        if token != None:
+            hts_id = token["token"]
+
         conn.close()
 
         key_dict = {
@@ -62,6 +72,7 @@ def get_key(user_id):
             "sec_key" : sec_key,
             "account_number_0": account_number_0,
             "account_number_1": account_number_1,
+            "hts_id": hts_id,
         }
         #pprint(key_dict)
 

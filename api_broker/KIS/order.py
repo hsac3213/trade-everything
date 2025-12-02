@@ -108,6 +108,8 @@ def cancel_order(user_id, order):
             resp = requests.post(url, json=payload, headers=headers, timeout=10)
             resp_json = resp.json()
 
+            Info(resp_json)
+
             if "ODNO" in resp_json:
                 result["result"] = "success"
                 result["order_id"] = resp_json["ODNO"]

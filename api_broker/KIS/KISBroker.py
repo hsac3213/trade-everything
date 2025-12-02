@@ -2,6 +2,7 @@ from ..BrokerCommon.BrokerInterface import BrokerInterface
 from ..BrokerCommon.BrokerData import *
 from .constants import API_URL, WS_URL, COLUMN_TO_KOR_DICT, DAY_MARKET_TIME
 from .constants import check_market_time
+from .common import aes_decrypt
 from .ws_token_manager import get_ws_token
 from .token_manager import get_access_token, get_key
 from ..Common.Debug import *
@@ -43,6 +44,10 @@ class KISWebSocket():
         # -> 콜백 리스트가 비어있으면 웹소켓 close 해야 함!
         self.orderbook_callbacks = []
         self.trade_callbacks = []
+
+        self.order_update_callback = None
+        self.aes_decrypt_key = None
+        self.aes_decrypt_iv = None
 
 class KISBroker(BrokerInterface):
     # 클래스 레벨 공유 WebSocket 관리 (모든 인스턴스가 공유)
@@ -389,8 +394,8 @@ class KISBroker(BrokerInterface):
             resp = requests.get(url, headers=headers, params=params, timeout=10)
             resp_json = resp.json()
             
-            Info("")
-            pprint(resp_json)
+            #Info("")
+            #pprint(resp_json)
 
             orders = []
             for order in resp_json["output"]:
@@ -436,7 +441,7 @@ class KISBroker(BrokerInterface):
                 KISBroker._user_ws[user_id].ws = await websockets.connect(WS_URL, ping_interval=None)
                 KISBroker._user_ws[user_id].ws_task = asyncio.create_task(KISBroker._ws_loop(user_id))
             else:
-                Info("Use existed ws.")
+                Info("Use existing ws.")
     
     @staticmethod
     async def _ws_loop(user_id):
@@ -483,9 +488,13 @@ class KISBroker(BrokerInterface):
                     await KISBroker._user_ws[user_id].ws.pong(resp)
                     #Info("KIS Ping processed.")
                 else:
-                    pass
-                    #Info("KIS WS Message")
                     #pprint(json_data)
+                    # 실시간 체결통보 구독 성공
+                    if "header" in json_data and "tr_id" in json_data["header"]:
+                        if json_data["header"]["tr_id"] == "H0GSCNI0":
+                            KISBroker._user_ws[user_id].aes_decrypt_key = json_data["body"]["output"]["key"]
+                            KISBroker._user_ws[user_id].aes_decrypt_iv = json_data["body"]["output"]["iv"]
+                            Info("실시간 체결통보 구독 성공")
             except json.JSONDecodeError:
                 Error("KIS json.JSONDecodeError")
                 pass
@@ -500,11 +509,23 @@ class KISBroker(BrokerInterface):
         
         # 호가 데이터 처리(HDFSASP0)
         if tr_id == "HDFSASP0":
-            await KISBroker._handle_orderbook(user_id, resp)
-        
+            await KISBroker._handle_orderbook(user_id, resp)  
         # 체결가 데이터 처리(HDFSCNT0)
         elif tr_id == "HDFSCNT0":
             await KISBroker._handle_trade(user_id, resp)
+        # 실시간체결통보 데이터 처리
+        # [ 응답 형식 ]
+        # 1|H0GSCNI0|001|(암호화 된 데이터)
+        elif tr_id == "H0GSCNI0":
+            Info(resp)
+            # 암호화 된 데이터인지 확인
+            if str(meta_data[0]) == "1":
+                # 복호화 수행
+                dec_resp = aes_decrypt(meta_data[3], KISBroker._user_ws[user_id].aes_decrypt_key, KISBroker._user_ws[user_id].aes_decrypt_iv)
+                print(dec_resp)
+        else:
+            Info(resp)
+        
     
     @staticmethod
     async def _handle_orderbook(user_id: str, resp: str):
@@ -747,6 +768,58 @@ class KISBroker(BrokerInterface):
                 async with KISBroker._user_ws[user_id].callbacks_lock:
                     if callback in KISBroker._user_ws[user_id].trade_callbacks:
                         KISBroker._user_ws[user_id].trade_callbacks.remove(callback)
+            except:
+                Error("Failed to remove callback.")
+
+    async def subscribe_order_update_async(self, callback: Callable[[Dict[str, Any]], Awaitable[None]]):
+        """
+        KIS 실시간 주문 업데이트 구독
+        -> 주문 접수/체결/취소 등
+        """
+        try:
+            # 웹소켓 연결
+            await KISBroker._ws_connect(self.user_id)
+
+            # 실시간체결통보 구독
+            async with KISBroker._user_lock[self.user_id]:
+                payload = {
+                    "header": {
+                        "approval_key": get_ws_token(self.user_id),
+                        "tr_type": "1",
+                        "custtype": "P",
+                        "content-type": "utf-8",
+                    },
+                    "body": {
+                        "input": {
+                            "tr_id": "H0GSCNI0",
+                            "tr_key": get_key(self.user_id)["hts_id"],
+                        }
+                    }
+                }
+                resp = await KISBroker._user_ws[self.user_id].ws.send(json.dumps(payload))
+
+            # 실시간체결통보 콜백 등록
+            async with KISBroker._user_ws[self.user_id].callbacks_lock:
+                self.order_update_callback = callback
+
+            while True:
+                await asyncio.sleep(1.0)
+                
+        except asyncio.CancelledError:
+            Error("KIS asyncio.CancelledError")
+            raise
+        except Exception as e:
+            Info("KIS Exception")
+            print(f"e : {e}")
+            traceback.print_exc()
+        finally:
+            # 실시간체결통보 콜백 제거
+            Info("Finally")
+            try:
+                async with KISBroker._user_ws[self.user_id].callbacks_lock:
+                    self.order_update_callback = callback = None
+                    KISBroker._user_ws[self.user_id].aes_decrypt_key = None
+                    KISBroker._user_ws[self.user_id].aes_decrypt_iv = None
             except:
                 Error("Failed to remove callback.")
 
