@@ -704,8 +704,8 @@ def main():
     #broker = BinanceBroker("2")
     #broker.get_assets()
 
-    #uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="info")
-    uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="error")
+    uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="info")
+    #uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="error")
 
 if __name__ == "__main__":
     main()
