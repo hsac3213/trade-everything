@@ -6,6 +6,7 @@ from .ws_token_manager import get_ws_token
 from .token_manager import get_access_token, get_key
 from ..Common.Debug import *
 from .order import place_order, cancel_order
+from .account import get_assets
 from typing import List, Dict, Any, Callable, Awaitable
 from typing import TypedDict, Literal
 import websockets
@@ -56,6 +57,12 @@ class KISBroker(BrokerInterface):
 
         #print("[ KISBroker ]")
         #print(f"user_id : {user_id}")
+
+    def get_assets(self) -> List[Dict[str, Any]]:
+        """
+        KIS 자산 조회
+        """
+        return get_assets(self.user_id)
 
     def get_candle(self, symbol: str, interval: str, end_time: str = None):
         """
@@ -381,6 +388,8 @@ class KISBroker(BrokerInterface):
             url = API_URL + f"/uapi/overseas-stock/v1/trading/inquire-nccs"
             resp = requests.get(url, headers=headers, params=params, timeout=10)
             resp_json = resp.json()
+            
+            Info("")
             pprint(resp_json)
 
             orders = []

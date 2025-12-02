@@ -9,6 +9,7 @@ import asyncio
 from pprint import pprint
 
 from ..Binance.BinanceBroker import *
+from ..KIS.KISBroker import *
 
 # 테스트
 from ..KIS.token_manager import get_key
@@ -358,15 +359,17 @@ async def websocket_userdata(
                 pass
         print(f"Userdata closed: {broker_name}")
 
-@app.get("/assets/{broker_name}")
-def get_assets(broker_name: str):
+@app.get("/assets")
+def get_assets(current_user: dict = Depends(get_current_user)):
     try:
-        broker = BrokerFactory.create_broker(broker_name)
-        symbols = broker.get_assets()
+        total_assets = []
+        for broker_name in BrokerFactory.get_available_brokers():
+            broker = BrokerFactory.create_broker(broker_name, current_user["user_id"])
+            broker_assets = broker.get_assets()
+            total_assets.extend(broker_assets)
         return {
             "message": "success",
-            "broker": broker_name,
-            "assets": symbols
+            "assets": total_assets
         }
     except Exception as e:
         return {
