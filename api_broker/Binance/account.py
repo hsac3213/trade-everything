@@ -24,6 +24,7 @@ def get_assets(user_id) -> List[Dict[str, Any]]:
         assets = []
         for asset in resp_json:
             assets.append({
+                "type": "crypto",
                 "display_name": "Spot " + asset["asset"],
                 "symbol": asset["asset"],
                 "amount": asset["free"],
@@ -37,6 +38,7 @@ def get_assets(user_id) -> List[Dict[str, Any]]:
         resp_json = resp.json()
 
         assets.append({
+            "type": "crypto",
             "display_name": "Simple Earn USDT",
             "symbol": "USDT",
             "amount": resp_json["totalAmountInUSDT"],

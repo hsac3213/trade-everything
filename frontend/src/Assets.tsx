@@ -3,6 +3,7 @@ import { SecureAuthService } from './Auth/AuthService';
 import { API_URL } from './Common/Constants';
 
 interface Asset {
+  broker: string;
   type: string;
   display_name: string;
   symbol: string;
@@ -62,6 +63,7 @@ const Assets: React.FC = () => {
           <table className="w-full text-white">
             <thead className="bg-gray-600">
               <tr>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Broker</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Type</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Name</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Symbol</th>
@@ -72,10 +74,12 @@ const Assets: React.FC = () => {
               {(
                 assets.map((asset, index) => (
                   <tr key={index} className="border-t border-gray-600 hover:bg-gray-600 transition-colors">
+                    <td className="px-6 py-4 text-sm capitalize">{asset.broker}</td>
                     <td className="px-6 py-4 text-sm capitalize">{asset.type}</td>
                     <td className="px-6 py-4 text-sm">{asset.display_name}</td>
                     <td className="px-6 py-4 text-sm text-gray-400">{asset.symbol}</td>
-                    <td className="px-6 py-4 text-sm text-right font-mono">{asset.amount.toLocaleString()}</td>
+                    {/*<td className="px-6 py-4 text-sm text-right font-mono">{asset.amount.toLocaleString()}</td>*/}
+                    <td className="px-6 py-4 text-sm text-right font-mono">*</td>
                   </tr>
                 ))
               )}

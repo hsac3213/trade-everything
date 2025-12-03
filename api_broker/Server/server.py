@@ -37,12 +37,12 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(user_settings_router)
 
-"""
-실시간 주문 업데이트 구독
--> 주문 접수/체결/취소 등
-"""
 @app.websocket("/ws/order_update/{broker_name}")
 async def websocket_order_update(ws: WebSocket, broker_name: str):
+    """
+    실시간 주문 업데이트 구독
+    -> 주문 접수/체결/취소 등
+    """
     await ws.accept()
     
     broker = None
@@ -353,12 +353,18 @@ async def websocket_userdata(
 
 @app.get("/assets")
 def get_assets(current_user: dict = Depends(get_current_user)):
+    """
+    통합 자산 조회
+    """
     try:
         total_assets = []
         for broker_name in BrokerFactory.get_available_brokers():
             broker = BrokerFactory.create_broker(broker_name, current_user["user_id"])
             broker_assets = broker.get_assets()
-            total_assets.extend(broker_assets)
+            for asset in broker_assets:
+                asset["broker"] = broker_name
+                total_assets.append(asset)
+            #total_assets.extend(broker_assets)
         return {
             "message": "success",
             "assets": total_assets

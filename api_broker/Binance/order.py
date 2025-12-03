@@ -14,7 +14,7 @@ def place_order(user_id, order):
 
         if order["symbol"].upper() not in CRYPTO_PAIR_WHITELIST:
             result["result"] = "reject"
-            result["message"] = "The order is rejected due to a security reason."
+            result["message"] = f"Not a white-listed pair({order["symbol"].upper()})"
             return result
 
         headers = {
