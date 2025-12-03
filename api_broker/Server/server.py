@@ -158,14 +158,6 @@ def get_brokers():
         "brokers": BrokerFactory.get_available_brokers()
     }
 
-@app.get("/test")
-async def test(current_user: dict = Depends(get_current_user)):
-    token_manager = TokenManager()
-    return {
-        "user": current_user.get("email"),
-        "tokens": token_manager.get_tokens(current_user["user_id"], "Binance")
-    }
-
 @app.post("/place_order/{broker_name}")
 async def place_order(broker_name: str, order: dict, current_user: dict = Depends(get_current_user)):
     try:
@@ -396,6 +388,9 @@ def get_symbols(broker_name: str):
 
 @app.get("/candle/{broker_name}")
 def get_candle(broker_name: str, symbol: str, interval: str, end_time: str, current_user: dict = Depends(get_current_user)):
+    """
+    캔들 차트 데이터 조회
+    """
     try:
         #print(end_time)
         
@@ -415,6 +410,9 @@ def get_candle(broker_name: str, symbol: str, interval: str, end_time: str, curr
 
 @app.websocket("/ws/orderbook/{broker_name}/{symbol}")
 async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
+    """
+    호가 데이터 구독
+    """
     await ws.accept()
     Info(f"[ {broker_name}/{symbol} ]")
     
@@ -522,6 +520,9 @@ async def websocket_orderbook(ws: WebSocket, broker_name: str, symbol: str):
 
 @app.websocket("/ws/trade/{broker_name}/{symbol}")
 async def websocket_trade(ws: WebSocket, broker_name: str, symbol: str):
+    """
+    실시간 체결 데이터 구독
+    """
     await ws.accept()
     
     broker = None
@@ -623,80 +624,6 @@ async def websocket_trade(ws: WebSocket, broker_name: str, symbol: str):
             except (asyncio.CancelledError, Exception):
                 pass
         print(f"🔌 Trade closed: {broker_name}/{symbol}")
-
-@app.websocket("/ws")
-async def websocket_proxy(ws: WebSocket):
-    await ws.accept()
-
-    payload = {}
-    try:
-        payload = await ws.receive_json()
-    except:
-        pass
-    
-    broker = None
-    subscription_task = None
-    is_connected = True
-    
-    try:
-        broker = BrokerFactory.create_broker(payload['broker_name'])
-        
-        # 비동기 콜백 - 데이터를 즉시 클라이언트로 전송 (프록시)
-        async def send_callback(data: dict):
-            nonlocal is_connected
-            
-            if not is_connected:
-                raise asyncio.CancelledError("Client disconnected")
-            try:
-                await ws.send_json(data)
-            except WebSocketDisconnect:
-                # 클라이언트 연결 끊김 - 플래그 설정 후 취소
-                is_connected = False
-                raise asyncio.CancelledError("Client disconnected")
-            except Exception as e:
-                # 기타 오류 - 플래그 설정 후 취소
-                is_connected = False
-                raise asyncio.CancelledError(f"Send error: {e}")
-        
-        # 비동기 구독 시작 - Binance → 즉시 → Client (프록시 방식)
-        match payload['ws_type']:
-            case "orderbook":
-                subscription_task = asyncio.create_task(
-                    broker.subscribe_orderbook_async(payload['symbol'], send_callback)
-                )
-            case "trade_price":
-                subscription_task = asyncio.create_task(
-                    broker.subscribe_trade_price_async(payload['symbol'], send_callback)
-                )
-        
-        # Task가 완료될 때까지 대기 (WebSocket 연결 유지)
-        await subscription_task
-    
-    except WebSocketDisconnect:
-        is_connected = False
-        print(f"Client disconnected")
-    
-    except asyncio.CancelledError:
-        is_connected = False
-        # 정상적인 취소, 로그 불필요
-    
-    except Exception as e:
-        is_connected = False
-        print(f"WebSocket error: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    finally:
-        # 구독 태스크 취소
-        is_connected = False
-        if subscription_task and not subscription_task.done():
-            subscription_task.cancel()
-            try:
-                await subscription_task
-            except (asyncio.CancelledError, Exception):
-                pass  # 취소 시 발생하는 모든 예외 무시
-        
-        print(f"WebSocket closed")
 
 def main():
     Info(f"Starting {SERVER_NAME}...")
