@@ -105,6 +105,7 @@ def cancel_order(user_id, order):
             }
 
             url = API_URL + f"/uapi/overseas-stock/v1/trading/daytime-order-rvsecncl"
+            # POST 요청시 data가 아닌 json 파라미터로 요청 필요
             resp = requests.post(url, json=payload, headers=headers, timeout=10)
             resp_json = resp.json()
 
@@ -150,6 +151,7 @@ def cancel_order(user_id, order):
             }
 
             url = API_URL + f"/uapi/overseas-stock/v1/trading/order-rvsecncl"
+            # POST 요청시 data가 아닌 json 파라미터로 요청 필요
             resp = requests.post(url, json=payload, headers=headers, timeout=10)
             resp_json = resp.json()
 

@@ -1,6 +1,11 @@
+from datetime import datetime, timedelta, date
+
 # Reference : https://apiportal.koreainvestment.com/apiservice-summary
 API_URL = "https://openapi.koreainvestment.com:9443"
 WS_URL = "ws://ops.koreainvestment.com:21000"
+
+# 서머 타임 여부
+IS_SUMMER_TIME = False
 
 # https://www.truefriend.com/main/bond/research/_static/TF03ca050001.jsp
 # [ 거래 가능 시간 ]
@@ -16,14 +21,15 @@ AFTER_MARKET_TIME = [ "06:00", "07:00" ]
 EXTENDED_AFTER_MARKET_TIME = [ "07:00", "09:00" ]
 
 # [ 서머타임 ]
-# 주간거래(ATS)
-#DAY_MARKET_TIME = [ "10:00", "17:00" ]
-# 프리마켓
-#PRE_MARKET_TIME = [ "17:00", "22:30" ]
-# 정규장
-#MAIN_MARKET_TIME = [ "22:30", "05:00" ]
-# 애프터마켓
-#AFTER_MARKET_TIME = [ "05:00", "06:00" ]
+if IS_SUMMER_TIME == True:
+    # 주간거래(ATS)
+    DAY_MARKET_TIME = [ "10:00", "17:00" ]
+    # 프리마켓
+    PRE_MARKET_TIME = [ "17:00", "22:30" ]
+    # 정규장
+    MAIN_MARKET_TIME = [ "22:30", "05:00" ]
+    # 애프터마켓
+    AFTER_MARKET_TIME = [ "05:00", "06:00" ]
 
 # 컬럼 이름을 한국어로 변환
 # -> 항상 API 문서와 같은지 크로스체크할 것!
@@ -105,7 +111,6 @@ COLUMN_TO_KOR_DICT = {
 }
 
 # 거래 시간 전처리
-from datetime import datetime, timedelta, time, date
 def preprocess_market_time(market_time):
     #return datetime.strptime(market_time[0], "%H:%M").time(), datetime.strptime(market_time[1], "%H:%M").time()
     start_str, end_str = market_time
@@ -132,9 +137,3 @@ def check_market_time(market_time):
     if market_time_dt[0] <= datetime.now() < market_time_dt[1]:
         return True
     return False
-
-#DAY_MARKET_DT = preprocess_market_time(DAY_MARKET_TIME)
-#PRE_MARKET_DT = preprocess_market_time(PRE_MARKET_TIME)
-#MAIN_MARKET_DT = preprocess_market_time(MAIN_MARKET_TIME)
-#AFTER_MARKET_DT = preprocess_market_time(AFTER_MARKET_TIME)
-#EXTENDED_AFTER_MARKET_DT = preprocess_market_time(EXTENDED_AFTER_MARKET_TIME)

@@ -17,11 +17,10 @@ WS_URL = "wss://ws-api.binance.com:443/ws-api/v3"
 
 # 암호화폐 거래 쌍 화이트 리스트
 # -> 화이트 리스트 이외의 거래 쌍에 대해서는 모든 요청 거부
-CRYPTO_PAIR_WHITELIST = [
-    "btcusdt",
-    "btcusdc",
-    "usdcusdt",
-]
+CRYPTO_PAIR_WHITELIST = {
+    "BTCUSDT",
+    "USDCUSDT",
+}
 
 def get_key(user_id):
     key = f"{user_id}_Binance_KEY"

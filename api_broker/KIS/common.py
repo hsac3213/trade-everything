@@ -1,3 +1,5 @@
+from ..Common.Debug import *
+
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 from base64 import b64decode
@@ -8,8 +10,8 @@ def aes_decrypt(cipher_text, key, iv):
     AES 복호화
     -> 실시간 체결통보
     """
-    print(key)
-    print(iv)
+    if key == None or iv == None:
+        Error("No decryption key or iv.")
 
     cipher = AES.new(key.encode('utf-8'), AES.MODE_CBC, iv.encode('utf-8'))
     return bytes.decode(unpad(cipher.decrypt(b64decode(cipher_text)), AES.block_size))

@@ -7,6 +7,16 @@ from pprint import pprint
 
 def place_order(user_id, order):
     try:
+        result = {
+            "result": "error",
+            "message": "",
+        }
+
+        if order["symbol"].upper() not in CRYPTO_PAIR_WHITELIST:
+            result["result"] = "reject"
+            result["message"] = "The order is rejected due to a security reason."
+            return result
+
         headers = {
             "X-MBX-APIKEY": get_key(user_id)["API"],
         }
@@ -25,11 +35,6 @@ def place_order(user_id, order):
         url = API_URL + f"/api/v3/order"
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
         resp_json = resp.json()
-        
-        result = {
-            "result": "error",
-            "message": "",
-        }
 
         if "orderId" in resp_json:
             result["result"] = "success"
