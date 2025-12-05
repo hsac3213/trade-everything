@@ -45,11 +45,12 @@ CREATE INDEX idx_user_settings_type ON user_settings(user_id, setting_type);
 CREATE TABLE IF NOT EXISTS user_tokens (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    broker_name TEXT,
-    token_name TEXT,
+    broker_name TEXT NOT NULL,
+    token_name TEXT NOT NULL,
     token TEXT,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_used TIMESTAMP
+    last_used TIMESTAMP,
+    UNIQUE(user_id, broker_name, token_name)
 );
 
 CREATE INDEX idx_user_tokens_user_id ON user_tokens(user_id);

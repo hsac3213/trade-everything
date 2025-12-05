@@ -8,15 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from pprint import pprint
 
-from ..Binance.BinanceBroker import *
-from ..KIS.KISBroker import *
-
-# 테스트
+#from ..Binance.BinanceBroker import *
+#from ..KIS.KISBroker import *
 from ..KIS.token_manager import get_key
 
 # 라우터 import
 from .auth import router as auth_router
 from .user_settings_router import router as user_settings_router
+from .api_key_router import router as api_key_router
 
 SERVER_NAME = "Trade Everything API Broker Server"
 SERVER_PORT = 8001
@@ -27,7 +26,12 @@ app = FastAPI(title=SERVER_NAME)
 app.add_middleware(
     CORSMiddleware,
     # React/Vite 개발 서버
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:5173",
+        "http://192.168.0.21:5173",
+        "http://10.34.78.8:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +40,7 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(auth_router)
 app.include_router(user_settings_router)
+app.include_router(api_key_router)
 
 @app.websocket("/ws/order_update/{broker_name}")
 async def websocket_order_update(ws: WebSocket, broker_name: str):
@@ -636,6 +641,8 @@ def main():
 
     #broker = BinanceBroker("2")
     #broker.get_assets()
+
+    #print(get_key(4))
 
     uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="info")
     #uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT, log_level="error")

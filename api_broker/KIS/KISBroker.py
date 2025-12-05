@@ -460,7 +460,7 @@ class KISBroker(BrokerInterface):
                     #raise
                 except websockets.exceptions.ConnectionClosedError:
                     Error("KIS LOOP websockets.exceptions.ConnectionClosedError")
-                    #break
+                    break
                 except Exception as e:
                     Info("KIS LOOP Exception")
                     traceback.print_exc()

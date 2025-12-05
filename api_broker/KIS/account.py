@@ -60,7 +60,7 @@ def get_assets(user_id) -> List[Dict[str, Any]]:
         resp = requests.get(url, headers=headers, params=params, timeout=10)
         resp_json = resp.json()
 
-        pprint(resp_json)
+        #pprint(resp_json)
 
         for asset in resp_json["output"]:
             if float(asset["frcr_dncl_amt1"]) > 0.0 and asset["natn_name"] == "미국":
@@ -71,7 +71,7 @@ def get_assets(user_id) -> List[Dict[str, Any]]:
                     "amount": asset["frcr_dncl_amt1"],
                 })
 
-        pprint(assets)
+        #pprint(assets)
 
         return assets
     except requests.exceptions.RequestException as e:

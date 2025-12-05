@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Trade from './Trade/Trade';
 import Assets from './Assets';
 import Script from './Script';
+import SettingsMain from './Settings/SettingsMain'
 import License from './License';
 import { ToastContainer } from './Common/Toast';
 import { BrokerProvider } from './Context/BrokerContext';
@@ -41,7 +42,8 @@ const MenuHeader: React.FC<MenuHeaderProps> = ({ activeMenu, onMenuChange, menuI
 
 // --- 메인 거래 컴포넌트 ---
 const TradeMain: React.FC = () => {
-  const menuItems = ['Trade', 'Assets', 'Script', 'License'];
+  //const menuItems = ['Trade', 'Assets', 'Script', 'Settings', 'License'];
+  const menuItems = ['Trade', 'Assets', 'Settings', 'License'];
   const [activeMenu, setActiveMenu] = useState<string>('Trade');
 
   // 메뉴별 컨텐츠 렌더링
@@ -63,11 +65,21 @@ const TradeMain: React.FC = () => {
           </>
         );
       
+      {/*
       case 'Script':
         return (
           <>
             <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
             <Script />
+          </>
+        );
+      */}
+
+      case 'Settings':
+        return (
+          <>
+            <MenuHeader activeMenu={activeMenu} onMenuChange={setActiveMenu} menuItems={menuItems} />
+            <SettingsMain />
           </>
         );
       

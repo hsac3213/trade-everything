@@ -56,9 +56,16 @@ def get_key(user_id):
             "API": api_key,
             "Private": private_key,
         }
+
+        # 모든 키가 유효한 경우에만 캐싱
+        for key, value in key_json.items():
+            if value == None or value == "":
+                return key_json
+
         redis_manager.redis_client.set(name=key, value=json.dumps(key_json), ex=60 * 60 * 23)
 
         Info("")
+        #print(key_json)
         return key_json
 
 # https://github.com/binance/binance-signature-examples/tree/master/python

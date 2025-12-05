@@ -342,7 +342,13 @@ async def passkey_login_begin(req: PasskeyLoginBeginRequest):
             allow_credentials = [
                 PublicKeyCredentialDescriptor(
                     id=base64.b64decode(cred['credential_id']),
-                    transports=[AuthenticatorTransport.INTERNAL, AuthenticatorTransport.HYBRID],
+                    transports=[
+                        AuthenticatorTransport.INTERNAL,
+                        AuthenticatorTransport.HYBRID,
+                        AuthenticatorTransport.USB,
+                        AuthenticatorTransport.NFC,
+                        AuthenticatorTransport.BLE
+                    ],
                 )
                 for cred in credentials
             ]

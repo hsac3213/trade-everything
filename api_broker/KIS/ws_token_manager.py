@@ -1,6 +1,7 @@
 from ..Common.RedisManager import redis_manager
 from .constants import *
 from ..Common.DBManager import get_db_conn
+from ..Common.Debug import *
 
 import json
 import requests
@@ -10,7 +11,8 @@ def get_ws_token(user_id):
 
     # 캐시된 웹소켓 토큰이 유효한지 검사
     if redis_manager.redis_client.exists(key) > 0:
-        #print("Use cached ws token.")
+        Info("Use cached ws token.")
+        print(redis_manager.redis_client.get(name=key))
         #print(redis_manager.redis_client.get(name=key))
         return redis_manager.redis_client.get(name=key)
 

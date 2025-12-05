@@ -4,6 +4,7 @@ from ..Common.DBManager import get_db_conn
 
 import json
 import requests
+from pprint import pprint
 
 def get_key(user_id):
     key = f"{user_id}_KIS_KEY"
@@ -74,7 +75,13 @@ def get_key(user_id):
             "account_number_1": account_number_1,
             "hts_id": hts_id,
         }
+        
         #pprint(key_dict)
+
+        # 모든 키가 유효한 경우에만 캐싱
+        for key, value in key_dict.items():
+            if value == None or value == "":
+                return key_dict
 
         redis_manager.redis_client.set(name=key, value=json.dumps(key_dict), ex=60 * 60 * 1)
 
