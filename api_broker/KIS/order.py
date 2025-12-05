@@ -11,19 +11,19 @@ def place_order(user_id, order):
     try:
         result = {
             "result": "error",
-            "message": "Invalid side.",
+            "message": "Unknown error.",
         }
 
         tr_id = ""
 
         # 매수 주문
-        if order["side"] == "buy":
+        if order["side"] == "BUY":
             tr_id = "TTTT1002U"
         # 매도 주문
-        elif order["side"] == "sell":
+        elif order["side"] == "SELL":
             tr_id = "TTTT1006U"
         else:
-            print(order)
+            result["result"] = "Invalid side."
             return result
 
         payload = {
@@ -48,17 +48,18 @@ def place_order(user_id, order):
         }
 
         url = API_URL + f"/uapi/overseas-stock/v1/trading/order"
-        resp = requests.post(url, data=payload, headers=headers, timeout=10)
+        # POST 요청시 data가 아닌 json 파라미터로 요청 필요
+        resp = requests.post(url, json=payload, headers=headers, timeout=10)
         pprint(resp.text)
         resp_json = resp.json()
 
-        if "ODNO" in resp_json:
+        if "ODNO" in resp_json["output"]:
             result["result"] = "success"
-            result["order_id"] = resp_json["ODNO"]
+            result["order_id"] = resp_json["output"]["ODNO"]
             result["order"] = order
         
-        if "msg" in resp_json:
-            result["message"] = resp_json["msg"]
+        if "msg1" in resp_json:
+            result["message"] = resp_json["msg1"]
 
         pprint(result)
 
@@ -76,7 +77,7 @@ def cancel_order(user_id, order):
     try:
         result = {
             "result": "error",
-            "message": "",
+            "message": "Unknown error.",
         }
 
         # 주간거래 시간 처리
@@ -111,23 +112,18 @@ def cancel_order(user_id, order):
 
             Info(resp_json)
 
-            if "ODNO" in resp_json:
+            if "ODNO" in resp_json["output"]:
                 result["result"] = "success"
-                result["order_id"] = resp_json["ODNO"]
+                result["order_id"] = resp_json["output"]["ODNO"]
                 result["order"] = order
             
-            if "msg" in resp_json:
-                result["message"] = resp_json["msg"]
+            if "msg1" in resp_json:
+                result["message"] = resp_json["output"]["msg1"]
 
             return result
         
         # 메인 마켓 처리
         else:
-            result = {
-                "result": "error",
-                "message": "",
-            }
-
             payload = {
                 "CANO": get_key(user_id)["account_number_0"],
                 "ACNT_PRDT_CD": get_key(user_id)["account_number_1"],
@@ -155,15 +151,15 @@ def cancel_order(user_id, order):
             resp = requests.post(url, json=payload, headers=headers, timeout=10)
             resp_json = resp.json()
 
-            if "ODNO" in resp_json:
+            if "ODNO" in resp_json["output"]:
                 result["result"] = "success"
-                result["order_id"] = resp_json["ODNO"]
+                result["order_id"] = resp_json["output"]["ODNO"]
                 result["order"] = order
             
-            if "msg" in resp_json:
-                result["message"] = resp_json["msg"]
+            if "msg1" in resp_json:
+                result["message"] = resp_json["msg1"]
 
-            #pprint(result)
+            pprint(resp_json)
 
             return result
     except requests.exceptions.RequestException as e:

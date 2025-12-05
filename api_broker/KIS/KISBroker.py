@@ -358,8 +358,7 @@ class KISBroker(BrokerInterface):
         """
         KIS 주문 전송
         """
-        pass
-        #return place_order(self.user_id, order)
+        return place_order(self.user_id, order)
     
     def cancel_order(self, order) -> List[Dict[str, Any]]:
         """
@@ -491,10 +490,14 @@ class KISBroker(BrokerInterface):
                     #pprint(json_data)
                     # 실시간 체결통보 구독 성공
                     if "header" in json_data and "tr_id" in json_data["header"]:
-                        if json_data["header"]["tr_id"] == "H0GSCNI0":
-                            KISBroker._user_ws[user_id].aes_decrypt_key = json_data["body"]["output"]["key"]
-                            KISBroker._user_ws[user_id].aes_decrypt_iv = json_data["body"]["output"]["iv"]
-                            Info("실시간 체결통보 구독 성공")
+                        try:
+                            if json_data["header"]["tr_id"] == "H0GSCNI0":
+                                KISBroker._user_ws[user_id].aes_decrypt_key = json_data["body"]["output"]["key"]
+                                KISBroker._user_ws[user_id].aes_decrypt_iv = json_data["body"]["output"]["iv"]
+                                Info("실시간 체결통보 구독 성공")
+                        except:
+                            Info()
+                            pprint(json_data)
             except json.JSONDecodeError:
                 Error("KIS json.JSONDecodeError")
                 pass
@@ -523,6 +526,60 @@ class KISBroker(BrokerInterface):
                 # 복호화 수행
                 dec_resp = aes_decrypt(meta_data[3], KISBroker._user_ws[user_id].aes_decrypt_key, KISBroker._user_ws[user_id].aes_decrypt_iv)
                 print(dec_resp)
+                
+                normalized_json = {}
+                # 새 주문
+                if dec_resp.split("^")[5] == "0":
+                    normalized_json = {
+                        # Order Status
+                        "order_status": "NEW",
+                        # Order ID
+                        "order_id": str(dec_resp.split("^")[2]),
+                        # Symbol
+                        "symbol": dec_resp.split("^")[7],
+                        # Side
+                        # -> 대문자 S
+                        "side": "BUY" if dec_resp.split("^")[4] == "02" else "SELL",
+                        # Order price
+                        "price": float(dec_resp.split("^")[9]) / 10000.0,
+                        # Order quantity
+                        "quantity": dec_resp.split("^")[8],
+                    }
+                # 주문 취소
+                if dec_resp.split("^")[5] == "2":
+                    normalized_json = {
+                        # Order Status
+                        "order_status": "CANCELED",
+                        # Order ID
+                        # 원주문번호
+                        "order_id": str(dec_resp.split("^")[3]),
+                        # Symbol
+                        "symbol": dec_resp.split("^")[7],
+                        # Side
+                        # -> 대문자 S
+                        "side": "BUY" if dec_resp.split("^")[4] == "02" else "SELL",
+                    }
+                # 주문 체결
+                elif dec_resp.split("^")[12] == "2":
+                    normalized_json = {
+                        # Order Status
+                        "order_status": "TRADE",
+                        # Order ID
+                        # 원주문번호?
+                        "order_id": str(dec_resp.split("^")[3]),
+                        # Symbol
+                        "symbol": dec_resp.split("^")[7],
+                        # Side
+                        # -> 대문자 S
+                        "side": "BUY" if dec_resp.split("^")[4] == "02" else "SELL",
+                        # Order price
+                        "price": float(dec_resp.split("^")[9]) / 10000.0,
+                        # Order quantity
+                        "quantity": dec_resp.split("^")[8],
+                    }
+
+                await KISBroker._user_ws[user_id].order_update_callback(normalized_json)
+
         else:
             Info(resp)
         
@@ -800,7 +857,8 @@ class KISBroker(BrokerInterface):
 
             # 실시간체결통보 콜백 등록
             async with KISBroker._user_ws[self.user_id].callbacks_lock:
-                self.order_update_callback = callback
+                print("실시간체결통보 콜백 등록 완료")
+                KISBroker._user_ws[self.user_id].order_update_callback = callback
 
             while True:
                 await asyncio.sleep(1.0)
@@ -817,7 +875,8 @@ class KISBroker(BrokerInterface):
             Info("Finally")
             try:
                 async with KISBroker._user_ws[self.user_id].callbacks_lock:
-                    self.order_update_callback = callback = None
+                    print("실시간체결통보 콜백 제거 완료")
+                    KISBroker._user_ws[self.user_id].order_update_callback = None
                     KISBroker._user_ws[self.user_id].aes_decrypt_key = None
                     KISBroker._user_ws[self.user_id].aes_decrypt_iv = None
             except:
@@ -864,14 +923,4 @@ class KISBroker(BrokerInterface):
             'symbol': symbol,
             'price': 50000.0,
             'timestamp': '2025-01-01T00:00:00Z'
-        }
-    
-    def place_order(self, symbol: str, side: str, quantity: float, price: float = None) -> Dict[str, Any]:
-        return {
-            'order_id': '12345',
-            'symbol': symbol,
-            'side': side,
-            'quantity': quantity,
-            'price': price,
-            'status': 'pending'
         }
