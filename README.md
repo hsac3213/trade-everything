@@ -1,11 +1,38 @@
+# Trade Everything
 
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.118-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![FIDO2](https://img.shields.io/badge/FIDO2-Passkey-FFCC00?style=for-the-badge&logo=fido-alliance&logoColor=black)
+![GitHub Copilot](https://img.shields.io/badge/GitHub_Copilot-Enabled-000000?style=for-the-badge&logo=github-copilot&logoColor=white)
 
+## 웹기반 통합 금융상품 거래 시스템
+
+---
+# 개요
+Trade Everything은 각 증권사별 매매 프로그램(HTS) 설치 없이 한번의 로그인으로 주식과 암호화폐의 거래 및 자산 조회가 가능한 웹 어플리케이션입니다.
+
+---
+
+# 주요 기능
+
+---
+# Demo Video
+![Demo](./images/Demo_Video.gif)
+---
+# To-do List
+- [ ] 시장가 주문, 서버 예약 주문 등의 주문 옵션 추가
+- [ ] 스크립트 실행 기능 추가(스크립트에 따라 자동으로 매매 및 리스크 관리)
+- [ ] 
+---
 # References
 한국투자증권 OpenAPI 공식 샘플 코드<br>
 https://github.com/koreainvestment/open-trading-api<br>
 한국투자증권 웹소켓 예제 코드<br>
 https://wikidocs.net/book/7847<br>
-웹소켓 request security 코드<br>
+Binance 웹소켓 request security 코드<br>
 https://developers.binance.com/docs/binance-spot-api-docs/websocket-api/request-security<br>
 ---
 
