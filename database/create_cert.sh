@@ -34,3 +34,8 @@ openssl req -new -sha256 -key ./certs/admin-console.key -out ./certs/admin-conso
 openssl x509 -req -in ./certs/admin-console.csr -CA ./certs/MyRootCA.crt -CAkey ./certs/MyRootCA.key \
 -CAcreateserial -out ./certs/admin-console.crt -days 365 -sha256 \
 -extfile ./cert_admin.conf -extensions v3_extensions
+
+# 인증서 권한 설정
+# ->PostgreSQL 컨테이너 내부의 postgres 유저는 UID 70
+sudo chown 70:70 ./pg-server.key
+sudo chmod 600 ./pg-server.key
