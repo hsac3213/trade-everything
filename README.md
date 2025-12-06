@@ -90,13 +90,13 @@ VS Code가 실행중인 PC에서도 localhost로 접속 가능하도록 설정.<
 - 화면에 나오는 절차대로 passkey 인증 수행
     - OS나 브라우저에 따라 절차가 상이할 수 있음!
 
-## Step 5 : API Key 등록
+## Step 5 : 브로커 토큰(API Key) 등록
 - **Settings** 버튼 클릭
 - 좌측 상단 **+Add Token** 버튼 클릭
 - 등록할 토큰을 선택(**Broker** 및 **API Key Name**)
 - 등록할 토큰을 **Token Value**에 입력.
 - **Save Token** 버튼 클릭
-- 위와 같은 절차로 필요한 모든 API Key들을 등록.
+- 위와 같은 절차로 필요한 모든 토큰들을 등록.
 
 ---
 # To-do List
