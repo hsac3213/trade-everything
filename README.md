@@ -63,6 +63,33 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
+## Step 3 : VS Code 포워딩 설정
+VS Code가 실행중인 PC에서도 localhost로 접속 가능하도록 설정.<br>
+
+![Forward1](./images/Forwarding_1.png)
+![Forward2](./images/Forwarding_2.png)
+![Forward3](./images/Forwarding_3.png)
+![Forward4](./images/Forwarding_4.png)
+
+## Step 4 : 계정 등록 및 로그인
+- http://localhost:5173 주소로 접속<br>
+- **Username**에 아이디 입력
+- **Register with Passkey** 클릭
+- 화면에 나오는 절차대로 passkey 저장 수행
+    - OS나 브라우저에 따라 절차가 상이할 수 있음!
+    - 성공 메세지 : **Registration successful! You can now login with your passkey.**
+- Logwin with Passkey 클릭
+- 화면에 나오는 절차대로 passkey 인증 수행
+    - OS나 브라우저에 따라 절차가 상이할 수 있음!
+
+## Step 5 : API Key 등록
+- **Settings** 버튼 클릭
+- 좌측 상단 **+Add Token** 버튼 클릭
+- 등록할 토큰을 선택(**Broker** 및 **API Key Name**)
+- 등록할 토큰을 **Token Value**에 입력.
+- **Save Token** 버튼 클릭
+- 위와 같은 절차로 필요한 모든 API Key들을 등록.
+
 ---
 # To-do List
 - [ ] 시장가 주문, 서버 예약 주문 등의 주문 옵션 추가
