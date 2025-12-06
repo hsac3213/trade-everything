@@ -29,42 +29,42 @@ POSTGRES_PASSWORD=your_secure_password
 
 ### 전체 스택 시작
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 개별 서비스 시작
 ```bash
 # PostgreSQL만
-docker-compose up -d postgres
+docker compose up -d postgres
 
 # Redis만
-docker-compose up -d redis
+docker compose up -d redis
 
 # 백엔드만
-docker-compose up -d backend
+docker compose up -d backend
 
 # 프론트엔드만
-docker-compose up -d frontend
+docker compose up -d frontend
 ```
 
 ### 로그 확인
 ```bash
 # 모든 서비스
-docker-compose logs -f
+docker compose logs -f
 
 # 특정 서비스
-docker-compose logs -f backend
-docker-compose logs -f postgres
+docker compose logs -f backend
+docker compose logs -f postgres
 ```
 
 ### 서비스 중지
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### 서비스 중지 및 볼륨 삭제 (데이터 초기화)
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ## 초기 데이터베이스 설정
@@ -91,7 +91,7 @@ psql -h localhost -U postgres -d tedb
 
 각 서비스의 상태 확인:
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 ## 트러블슈팅
@@ -105,7 +105,7 @@ docker exec -it trade-everything-db ls -la /certs
 ### 백엔드가 DB에 연결 안 됨
 ```bash
 # 백엔드 로그 확인
-docker-compose logs backend
+docker compose logs backend
 
 # PostgreSQL 연결 테스트
 docker exec -it trade-everything-backend psql \
@@ -119,7 +119,7 @@ docker exec -it trade-everything-backend psql \
 ### 프론트엔드 빌드 실패
 ```bash
 # 프론트엔드 컨테이너 재빌드
-docker-compose build --no-cache frontend
+docker compose build --no-cache frontend
 ```
 
 ## 프로덕션 배포 시 추가 고려사항
@@ -156,13 +156,13 @@ services:
 git pull
 
 # 이미지 재빌드
-docker-compose build
+docker compose build
 
 # 서비스 재시작
-docker-compose up -d
+docker compose up -d
 
 # 또는 한 번에
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 ## 버전 정보
