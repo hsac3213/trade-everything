@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Trade from './Trade/Trade';
 import Assets from './Assets';
-import Script from './Script';
+//import Script from './Script';
 import SettingsMain from './Settings/SettingsMain'
 import License from './License';
 import { ToastContainer } from './Common/Toast';

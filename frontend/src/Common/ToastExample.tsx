@@ -57,7 +57,7 @@ const ToastExample: React.FC = () => {
   };
 
   // 예제 5: 실제 API 호출과 함께 사용
-  const handleOrderSubmit = async () => {
+  const _handleOrderSubmit = async () => {
     const submitOrder = async () => {
       const response = await fetch('http://localhost:8001/api/order', {
         method: 'POST',

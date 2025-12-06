@@ -87,7 +87,7 @@ const OrderBook: React.FC<OrderBookProps> = ({
   onPriceClick
 }) => {
   // 호가 표시 개수 상태 (1~20개)
-  const [displayCount, setDisplayCount] = useState<number>(20);
+  const [displayCount] = useState<number>(20);
   const [asks, setAsks] = useState<Order[]>([]);
   const [bids, setBids] = useState<Order[]>([]);
   const [isConnected, setIsConnected] = useState(false);
