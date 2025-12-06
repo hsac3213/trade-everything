@@ -71,7 +71,7 @@ sudo docker compose build --no-cache
 sudo docker compose up -d
 ```
 
-## Step 3 : VS Code 포워딩 설정
+## Step 3 : VS Code 포워딩 설정(먼저 VS Code에서 위 docker가 실행중인 서버에 ssh로 접속해야 함)
 VS Code가 실행중인 PC에서도 localhost로 접속 가능하도록 설정.<br>
 
 ![Forward1](./images/Forwarding_1.png)
