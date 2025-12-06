@@ -5,6 +5,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.118-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![FIDO2](https://img.shields.io/badge/FIDO2-Passkey-FFCC00?style=for-the-badge&logo=fido-alliance&logoColor=black)
 ![GitHub Copilot](https://img.shields.io/badge/GitHub_Copilot-Enabled-000000?style=for-the-badge&logo=github-copilot&logoColor=white)
 
