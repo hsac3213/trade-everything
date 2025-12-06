@@ -1,0 +1,27 @@
+# Backend Dockerfile
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY api_broker/ ./api_broker/
+
+# Create directory for certificates
+RUN mkdir -p /app/certs
+
+# Expose port
+EXPOSE 8001
+
+# Run the application
+CMD ["python", "-m", "api_broker.Server.server"]
