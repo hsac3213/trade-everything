@@ -81,7 +81,7 @@ VS Code가 실행중인 PC에서도 localhost로 접속 가능하도록 설정.<
 - 화면에 나오는 절차대로 passkey 저장 수행
     - OS나 브라우저에 따라 절차가 상이할 수 있음!
     - 성공 메세지 : **Registration successful! You can now login with your passkey.**
-- Logwin with Passkey 클릭
+- **Login with Passkey** 클릭
 - 화면에 나오는 절차대로 passkey 인증 수행
     - OS나 브라우저에 따라 절차가 상이할 수 있음!
 
@@ -108,12 +108,14 @@ VS Code가 실행중인 PC에서도 localhost로 접속 가능하도록 설정.<
     - [ ] 데이터베이스 및 캐시 암호화
 ---
 # References
+
 한국투자증권 OpenAPI 공식 샘플 코드<br>
 https://github.com/koreainvestment/open-trading-api<br>
 한국투자증권 웹소켓 예제 코드<br>
 https://wikidocs.net/book/7847<br>
 Binance 웹소켓 request security 코드<br>
 https://developers.binance.com/docs/binance-spot-api-docs/websocket-api/request-security<br>
+
 ---
 
 # TradingView
