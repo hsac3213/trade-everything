@@ -17,21 +17,23 @@ import base64
 # --- FastAPI 앱 설정 ---
 app = FastAPI()
 
-# --- CORS 설정 ---
-origins = ["http://localhost:5173"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # --- WebAuthn 설정 ---
-RP_ID = "localhost"
-RP_NAME = "My Python App"
-RP_ORIGIN = "http://localhost:5173"
+# 환경 변수에서 읽어오고, 없으면 기본값 사용
+import os
+RP_ID = os.environ.get("RP_ID", "localhost")
+RP_NAME = os.environ.get("RP_NAME", "Trade Everything")
+RP_ORIGIN = os.environ.get("RP_ORIGIN", "http://localhost:5173")
+
+print(f"WebAuthn RP_ID: {RP_ID}")
+print(f"WebAuthn RP_ORIGIN: {RP_ORIGIN}")
 
 # --- MariaDB 연결 ---
 Base = declarative_base()

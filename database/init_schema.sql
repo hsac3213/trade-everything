@@ -2,6 +2,36 @@
 \c tedb
 
 -- ==========================================
+-- 0. 데이터베이스 사용자 생성
+-- ==========================================
+-- 일반 사용자 생성 (이미 존재하면 무시)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_user WHERE usename = 'teuser') THEN
+        CREATE USER teuser WITH LOGIN PASSWORD 'teuser_password';
+    END IF;
+END
+$$;
+
+-- 관리자 사용자 생성 (이미 존재하면 무시)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_user WHERE usename = 'teadmin') THEN
+        CREATE USER teadmin WITH LOGIN SUPERUSER PASSWORD 'teadmin_password';
+    END IF;
+END
+$$;
+
+-- backend 사용자 생성 (백엔드 애플리케이션용)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_user WHERE usename = 'backend_user') THEN
+        CREATE USER backend_user WITH LOGIN PASSWORD 'backend_password';
+    END IF;
+END
+$$;
+
+-- ==========================================
 -- 1. 사용자 테이블
 -- ==========================================
 CREATE TABLE IF NOT EXISTS users (
@@ -97,3 +127,11 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO teuser;
 GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO teuser;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO teuser;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO teuser;
+
+-- backend_user 권한 부여 (백엔드 애플리케이션용)
+GRANT CONNECT ON DATABASE tedb TO backend_user;
+GRANT USAGE ON SCHEMA public TO backend_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO backend_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO backend_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO backend_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO backend_user;

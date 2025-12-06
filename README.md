@@ -44,6 +44,26 @@ Trade Everything은 각 증권사별 매매 프로그램(HTS) 설치 없이 한�
 # Demo Video
 ![Demo](./images/Demo_Video.gif)
 ---
+# Installation
+## Step 1 : DB 서버 인증서 생성
+```sh
+# trade-everthing 소스 코드 디렉터리에서 진행!
+
+# database 디렉터리로 이동
+cd ./database
+# 인증서 파일 생성
+sh ./create_cert.sh
+```
+
+## Step 2 : Docker deploy
+```sh
+# trade-everthing 소스 코드 디렉터리에서 진행!
+docker compose down -v
+docker compose build --no-cache
+docker compose up -d
+```
+
+---
 # To-do List
 - [ ] 시장가 주문, 서버 예약 주문 등의 주문 옵션 추가
 - [ ] 호가 클릭 주문 기능 추가

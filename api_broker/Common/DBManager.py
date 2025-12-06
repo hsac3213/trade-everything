@@ -5,8 +5,9 @@ from psycopg2.extras import RealDictCursor
 import os
 
 # DB 서버 관련 환경변수 읽기
-DB_HOST= os.environ.get("DB_HOST")
+DB_HOST = os.environ.get("DB_HOST")
 DB_ID = os.environ.get("DB_ID")
+DB_PASSWORD = os.environ.get("DB_PASSWORD")
 DB_NAME = "tedb"
 DB_ROOT_CA_PATH = os.environ.get("DB_ROOT_CA_PATH")
 DB_CERT_PATH = os.environ.get("DB_CERT_PATH")
@@ -21,18 +22,32 @@ def init_db_pool():
     global _db_pool
     if _db_pool is None:
         try:
-            _db_pool = pool.ThreadedConnectionPool(
-                minconn=DB_MIN_CONN,
-                maxconn=DB_MAX_CONN,
-                host=DB_HOST,
-                database=DB_NAME,
-                user=DB_ID,
-                cursor_factory=RealDictCursor,
-                sslmode='verify-full',
-                sslrootcert=DB_ROOT_CA_PATH,
-                sslcert=DB_CERT_PATH,       
-                sslkey=DB_CERT_KEY_PATH,
-            )
+            # SSL 인증서가 모두 있으면 인증서 기반 인증 사용
+            if DB_ROOT_CA_PATH and DB_CERT_PATH and DB_CERT_KEY_PATH:
+                _db_pool = pool.ThreadedConnectionPool(
+                    minconn=DB_MIN_CONN,
+                    maxconn=DB_MAX_CONN,
+                    host=DB_HOST,
+                    database=DB_NAME,
+                    user=DB_ID,
+                    cursor_factory=RealDictCursor,
+                    sslmode='verify-full',
+                    sslrootcert=DB_ROOT_CA_PATH,
+                    sslcert=DB_CERT_PATH,       
+                    sslkey=DB_CERT_KEY_PATH,
+                )
+            # 그 외에는 비밀번호 기반 인증 사용
+            else:
+                _db_pool = pool.ThreadedConnectionPool(
+                    minconn=DB_MIN_CONN,
+                    maxconn=DB_MAX_CONN,
+                    host=DB_HOST,
+                    database=DB_NAME,
+                    user=DB_ID,
+                    password=DB_PASSWORD,
+                    cursor_factory=RealDictCursor,
+                    sslmode='prefer',
+                )
             print("DB Pool Initialized.")
         except Exception as e:
             Error(f"{e}")

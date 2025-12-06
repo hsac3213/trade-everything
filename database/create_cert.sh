@@ -37,5 +37,5 @@ openssl x509 -req -in ./certs/admin-console.csr -CA ./certs/MyRootCA.crt -CAkey 
 
 # 인증서 권한 설정
 # ->PostgreSQL 컨테이너 내부의 postgres 유저는 UID 70
-sudo chown 70:70 ./pg-server.key
-sudo chmod 600 ./pg-server.key
+sudo chown 70:70 ./certs/pg-server.key
+sudo chmod 600 ./certs/pg-server.key
