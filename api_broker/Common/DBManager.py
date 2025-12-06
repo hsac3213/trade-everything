@@ -1,4 +1,4 @@
-from Common.Debug import *
+from .Debug import *
 import psycopg2
 from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
