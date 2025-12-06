@@ -64,6 +64,11 @@ sh ./create_cert.sh
 docker compose down -v
 docker compose build --no-cache
 docker compose up -d
+
+# 권한 관련 오류 발생시 다음 명령어들로 시도
+sudo docker compose down -v
+sudo docker compose build --no-cache
+sudo docker compose up -d
 ```
 
 ## Step 3 : VS Code 포워딩 설정
