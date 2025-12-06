@@ -10,7 +10,9 @@ import json
 from jose import JWTError, jwt
 
 # JWT 설정
-SECRET_KEY = secrets.token_urlsafe(32)  # 실제 운영 시 환경변수로 관리
+
+# 테스트 환경이므로 랜덤 값 사용
+SECRET_KEY = secrets.token_urlsafe(32)
 ALGORITHM = "HS256"
 
 # Access 토큰 만료 시간(분 단위) 지정

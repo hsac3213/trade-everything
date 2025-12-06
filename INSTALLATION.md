@@ -7,6 +7,9 @@
 sudo apt install npm
 cd ./frontend
 npm install
+
+# 실행
+npm run dev
 ```
 
 # Backend
@@ -19,6 +22,9 @@ pip install -r requirements.txt
 
 # Redis 설치
 sudo apt install redis-server
+
+# 실행
+sh run_server.sh
 ```
 
 # Database
