@@ -56,26 +56,6 @@ const ToastExample: React.FC = () => {
     });
   };
 
-  // 예제 5: 실제 API 호출과 함께 사용
-  const _handleOrderSubmit = async () => {
-    const submitOrder = async () => {
-      const response = await fetch('http://localhost:8001/api/order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: 'BTCUSDT', amount: 0.01 }),
-      });
-      
-      if (!response.ok) throw new Error('주문 실패');
-      return response.json();
-    };
-
-    showToast.promise(submitOrder(), {
-      loading: '주문 제출 중...',
-      success: (data) => `주문 완료! ID: ${data.orderId}`,
-      error: (err) => `주문 실패: ${err.message}`,
-    });
-  };
-
   return (
     <div className="p-8 space-y-4">
       <h2 className="text-2xl font-bold mb-6">토스트 알림 예제</h2>
